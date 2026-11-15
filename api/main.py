@@ -34,9 +34,12 @@ class CheckResponse(BaseModel):
     url: str
     label: int
     label_name: str
-    probability: float
+    verdict: str
+    probability: float | None
     inference_ms: float
     top_features: list[TopFeature]
+    decision_source: str
+    reason: str
 
 
 class HealthResponse(BaseModel):

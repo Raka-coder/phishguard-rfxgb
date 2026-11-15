@@ -16,6 +16,14 @@ SEED = 42
 TEST_SIZE = 0.2
 THRESHOLD = 0.5
 
+# Keputusan user-facing berlapis (tidak mengubah label biner 0/1 model):
+# 0/1 tetap dari THRESHOLD (0.5); verdict memakai band berikut.
+THRESHOLD_PHISHING = 0.65
+THRESHOLD_SUSPICIOUS = 0.40
+VERDICT_PHISHING = "PHISHING"
+VERDICT_LEGITIMATE = "LEGITIMATE"
+VERDICT_SUSPICIOUS = "SUSPICIOUS"
+
 # PhiUSIIL: 1 = legitimate, 0 = phishing (terbalik dari intuisi) -> P(phishing) = predict_proba[:, 0]
 LABEL_LEGIT = 1
 LABEL_PHISH = 0
@@ -41,6 +49,7 @@ IDENTITY_COLUMNS = ["URL", "Domain", "TLD", "Title", "label"]
 MODEL_B_PATH = ROOT / "src" / "model.pkl"
 MODEL_A_PATH = ROOT / "src" / "model_full.pkl"
 TLD_PROBS_PATH = ROOT / "src" / "tld_probs.json"
+TRUSTED_DOMAINS_PATH = ROOT / "src" / "trusted_domains.json"
 METRICS_PATH = DOCS_DIR / "metrics.json"
 STATS_PATH = DOCS_DIR / "stats.json"
 

@@ -5,6 +5,7 @@ import pytest
 import src.predict as predict
 from src.config import LABEL_LEGIT, LABEL_PHISH, THRESHOLD, URL_FEATURES
 from src.feature_utils import extract_features, to_frame
+from src.reputation import is_trusted, is_user_content
 
 PHISHING_IP_URL = "http://192.168.0.1/paypal-login-verify.xyz"
 LEGIT_URL = "https://www.wikipedia.org"
@@ -36,9 +37,21 @@ def test_ip_host_phishing_url():
 
 def test_wikipedia_is_legitimate():
     result = predict.predict_url(LEGIT_URL)
-    assert result["probability"] < 0.2
+    assert result["verdict"] == "LEGITIMATE"
+    assert result["decision_source"] == "allowlist"
+    assert result["probability"] is None
+    assert result["top_features"] == []
     assert result["label"] == LABEL_LEGIT
     assert result["label_name"] == "LEGITIMATE"
+
+
+def test_model_path_legitimate_url():
+    result = predict.predict_url("https://www.bbc.com")
+    assert result["verdict"] == "LEGITIMATE"
+    assert result["decision_source"] == "model"
+    assert result["probability"] is not None
+    assert result["probability"] < 0.2
+    assert result["label"] == LABEL_LEGIT
 
 
 def test_empty_url_raises():
@@ -82,7 +95,7 @@ def test_unicode_url_does_not_crash():
 
 def test_short_normal_url_output_contract():
     result = predict.predict_url("https://example.com")
-    assert set(result) == {"url", "label", "label_name", "probability", "inference_ms", "top_features"}
+    assert set(result) == {"url", "label", "label_name", "verdict", "probability", "inference_ms", "top_features", "decision_source", "reason"}
     assert result["url"] == "https://example.com"
     assert result["label"] == (LABEL_PHISH if result["probability"] >= THRESHOLD else LABEL_LEGIT)
     assert result["label_name"] in {"PHISHING", "LEGITIMATE"}
@@ -99,8 +112,10 @@ def test_top_features_contract():
 
 
 def test_probability_in_unit_range():
-    for url in (PHISHING_IP_URL, LEGIT_URL, "http://example.com/login?id=1"):
-        assert 0 <= predict.predict_url(url)["probability"] <= 1
+    for url in (PHISHING_IP_URL, "https://www.bbc.com", "http://example.com/login?id=1"):
+        result = predict.predict_url(url)
+        if result["probability"] is not None:
+            assert 0 <= result["probability"] <= 1
 
 
 def test_inference_ms_measured():
@@ -119,9 +134,32 @@ def test_predict_url_is_deterministic():
     assert first["top_features"] == second["top_features"]
 
 
+def test_allowlist_github():
+    result = predict.predict_url("https://github.com/Raka-coder/phishguard-rfxgb")
+    assert result["decision_source"] == "allowlist"
+    assert result["verdict"] == "LEGITIMATE"
+    assert result["probability"] is None
+    assert result["top_features"] == []
+    assert result["label"] == LABEL_LEGIT
+
+
+def test_vercel_user_content_not_allowlisted():
+    assert not is_trusted("phishing-test.vercel.app")
+    assert is_user_content("phishing-test.vercel.app")
+    result = predict.predict_url("https://phishing-test.vercel.app/login")
+    assert result["decision_source"] != "allowlist"
+
+
+def test_classify_thresholds():
+    assert predict._classify(0.70, False)[0] == "PHISHING"
+    assert predict._classify(0.50, False)[0] == "SUSPICIOUS"
+    assert predict._classify(0.30, False)[0] == "LEGITIMATE"
+    assert predict._classify(0.90, True)[1] == "allowlist"
+
+
 def test_missing_stats_keeps_prediction_working(monkeypatch, tmp_path):
     monkeypatch.setattr(predict, "STATS_PATH", tmp_path / "stats-hilang.json")
     monkeypatch.setattr(predict, "_ARTIFACTS", None)
-    result = predict.predict_url(LEGIT_URL)
+    result = predict.predict_url("https://www.bbc.com")
     assert result["top_features"] == []
     assert result["label"] in (LABEL_PHISH, LABEL_LEGIT)

@@ -130,12 +130,15 @@ Response 200:
   "url": "https://contoh.com/login",
   "label": 0,
   "label_name": "PHISHING",
+  "verdict": "PHISHING",
   "probability": 0.97,
   "inference_ms": 12.4,
   "top_features": [
     {"feature": "IsDomainIP", "value": 0, "impact": "menurunkan risiko"},
     {"feature": "URLLength",  "value": 57, "impact": "netral"}
-  ]
+  ],
+  "decision_source": "model",
+  "reason": "Skor phishing 0.97 >= 0.65 (ambang phishing)."
 }
 ```
 
@@ -145,10 +148,17 @@ Response 400 (input tidak valid):
 ```
 
 Kontrak:
-- `label`: 0 = PHISHING, 1 = LEGITIMATE (sama dengan dataset).
-- `label_name`: "PHISHING" | "LEGITIMATE".
-- `probability`: P(phishing) ∈ [0,1]; threshold 0.5.
-- `top_features`: maksimal 5 item, terurut dampak terbesar.
+- `label`: 0 = PHISHING, 1 = LEGITIMATE (biner model, kompatibel metrik/test lama).
+- `label_name`: "PHISHING" | "LEGITIMATE" | "SUSPICIOUS".
+- `verdict`: "PHISHING" | "LEGITIMATE" | "SUSPICIOUS" (keputusan user-facing).
+- `probability`: P(phishing) ∈ [0,1] atau `null` (untuk allowlist, model tidak dipanggil).
+- `decision_source`: "allowlist" | "model" | "uncertainty".
+- `reason`: penjelasan Bahasa Indonesia.
+- `top_features`: maksimal 5 item, terurut dampak terbesar (kosong untuk allowlist).
+- Alur keputusan: allowlist domain tepercaya (offline) -> LEGITIMATE; else model;
+  P >= 0.65 -> PHISHING; 0.40 <= P < 0.65 -> SUSPICIOUS; P < 0.40 -> LEGITIMATE.
+- `THRESHOLD` (0.5) tetap dipakai untuk `label` biner; `THRESHOLD_PHISHING=0.65`,
+  `THRESHOLD_SUSPICIOUS=0.40` untuk `verdict`.
 - Input kosong, tanpa scheme, tanpa host → 400 (bukan 500).
 
 Implementasi `src/predict.py` (T7), dipakai ulang oleh API (T8):

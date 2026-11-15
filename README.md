@@ -21,6 +21,19 @@ Informatika, Universitas Siliwangi.
 - **Split tunggal:** `config.make_split(df)` (stratified, seed 42) dipakai `train.py` dan `evaluate.py` — test set 47.159 baris tidak pernah dilatih.
 - **UI 100% Python** (Reflex 0.11): halaman cek URL dan halaman evaluasi, tanpa JS/HTML manual.
 
+## Keputusan berlapis (T14)
+
+`predict_url` kini mengembalikan keputusan user-facing `verdict` selain `label` biner:
+
+1. **Allowlist domain tepercaya (offline)** → `LEGITIMATE`, `decision_source="allowlist"`, `probability=null`.
+2. **Model XGBoost** → `P(phishing)`:
+   - `P >= 0.65` → `PHISHING` (`model`)
+   - `0.40 <= P < 0.65` → `SUSPICIOUS` (`uncertainty`, perlu verifikasi manual)
+   - `P < 0.40` → `LEGITIMATE` (`model`)
+
+`label` (0/1) tetap mengikuti `THRESHOLD=0.5` agar kompatibel dengan metrik/test lama.
+Tanpa network at inference; lapisan PhishTank/Whois/DNS ditunda (future work).
+
 ## Hasil
 
 | Model | Fitur | Test accuracy | Precision (phishing) | Recall (phishing) | F1 (phishing) | FP | FN |

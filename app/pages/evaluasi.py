@@ -429,6 +429,14 @@ def report_card() -> rx.Component:
 
 def loaded_view() -> rx.Component:
     return rx.vstack(
+        rx.callout(
+            "Metrik di halaman ini adalah metrik model-only pada test set PhiUSIIL. "
+            "Lapisan reputasi offline (allowlist) menurunkan false positive dunia nyata "
+            "tanpa mengubah test set; lihat hasil cek URL di halaman utama.",
+            icon="info",
+            color_scheme="blue",
+            style={"width": "100%"},
+        ),
         rx.grid(
             stat_card(EvalState.best_b, "Model di aplikasi"),
             stat_card(EvalState.n_features_b, "Fitur Model B"),

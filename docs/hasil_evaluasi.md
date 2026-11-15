@@ -81,3 +81,45 @@ Total **122** baris (122 URL unik); 10 contoh teratas ditampilkan.
   (`https://…`, tanpa query, sedikit simbol), mirip URL legit di dataset.
 - Kesimpulan draf: performa test tinggi karena distribusi dataset; risiko utama di data live adalah
   ketergantungan pada HTTPS dan keterbatasan fitur leksikal murni (lihat T11 untuk uji URL live).
+
+## Analisis FP/FN dan mitigasi (T14)
+
+### Temuan pada test set (model-only)
+
+- **28 FP** (aktual legit diprediksi phishing): URL legit pendek, HTTPS, tanpa digit/simbol, sering domain bank/populer dengan path `/login`. Skor 0.70-0.99, sehingga **uncertainty band (0.40-0.65) tidak menyelamatkannya** — yang memperbaiki FP dunia nyata adalah lapisan **allowlist** (mis. `github.com`).
+- **122 FN** (aktual phishing diprediksi legit): URL phishing pendek dan "bersih" (`https://...`, tanpa query, sedikit simbol), mirip URL legit. Ini konsisten dengan dominasi `IsHTTPS` (0.749) dan keterbatasan fitur leksikal murni.
+- Model A mencapai 1.0000 karena fitur konten halaman (URLSimilarityIndex, NoOfExternalRef, LineOfCode) yang **tidak tersedia saat inference live** (leakage yang didokumentasikan, bukan disembunyikan).
+
+### Mitigasi yang diterapkan (T14, offline, tanpa network at inference)
+
+- **Lapisan reputasi offline** (`src/reputation.py` + `src/trusted_domains.json`, ~60 domain korporat, exact match, tanpa wildcard/user-content/shortener): domain tepercaya langsung `LEGITIMATE` dengan `decision_source="allowlist"`, `probability=null`.
+- **Uncertainty band**: P 0.40-0.65 -> `SUSPICIOUS` ("perlu verifikasi manual"), bukan langsung PHISHING.
+- `label` (0/1) tetap mengikuti `THRESHOLD=0.5` agar kompatibel dengan metrik; `verdict` adalah keputusan user-facing (`PHISHING`/`LEGITIMATE`/`SUSPICIOUS`).
+- PhishTank denylist, whois domain-age, dan threat intel **ditunda** (future work T17) agar tidak melanggar klausul "no network at inference".
+
+### Keterbatasan yang tetap ada
+
+- URL legitimate baru yang tidak ada di allowlist dan berada di zona tidak pasti akan ditandai `SUSPICIOUS`, bukan langsung phishing.
+- Domain user-controlled (`*.vercel.app`, `*.github.io`, dll.) sengaja tidak di-allowlist; andalkan model + uncertainty band.
+- Metrik test set di atas adalah **metrik model-only**; lapisan reputasi tidak mengubah test set (sesuai keputusan desain).
+
+## Uji Live (T11) — catatan
+
+Status: korpus di `tests/fixtures/urls.txt` masih berisi **placeholder** (ditandai
+`# PHISHTANK-PLACEHOLDER:`). Tabel hasil final menunggu owner mengganti URL
+dengan URL PhishTank terverifikasi + screenshot di `docs/screenshots/`.
+
+Temuan dari run placeholder (bukan data PhishTank final):
+
+- `https://github.com` diskor **PHISHING 0.9987** (false positive). Hipotesis:
+  URL pendek (18 karakter) + sedikit simbol membuat fitur leksikal mirip
+  URL phishing pendek yang ada di dataset; dominasi `IsHTTPS` tidak cukup
+  menurunkan skor karena fitur panjang/jumlah simbol mendominasi arah.
+  Dengan lapisan allowlist (T14), `github.com` sekarang langsung `LEGITIMATE`.
+- URL placeholder phishing (tanpa HTTPS / IP host) semuanya diskor 1.0000
+  (sesuai pola `IsHTTPS=0` dan `IsDomainIP=1`).
+- URL legitim panjang (`wikipedia.org`, `python.org`, `bri.co.id`, `kompas.com`)
+  diskor < 0.003 — konsisten dengan pola training.
+
+Lihat `docs/screenshots/` (index-legit.png, index-phishing.png, index-features.png,
+evaluasi.png) untuk tampilan UI.

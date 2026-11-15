@@ -117,10 +117,9 @@ def empty_state() -> rx.Component:
 
 
 def verdict_card() -> rx.Component:
-    tone = rx.cond(State.is_phishing, t.RED, t.GREEN)
     return card(
         rx.hstack(
-            rx.box(style={"width": "4px", "height": "16px", "background": tone, "border_radius": "0"}),
+            rx.box(style={"width": "4px", "height": "16px", "background": State.verdict_color, "border_radius": "0"}),
             muted("Verdict"),
             align="center",
             spacing="2",
@@ -129,7 +128,7 @@ def verdict_card() -> rx.Component:
             rx.box(
                 rx.image(
                     src=rx.cond(State.is_phishing, "/img/phishing.png", "/img/legit.png"),
-                    alt=rx.cond(State.is_phishing, "Phishing", "Legitimate"),
+                    alt=State.label_name,
                     style={"width": "100%", "height": "100%", "object_fit": "contain", "object_position": "bottom"},
                 ),
                 style={
@@ -144,14 +143,12 @@ def verdict_card() -> rx.Component:
             rx.vstack(
                 rx.text(
                     State.label_name,
-                    style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": tone, "overflow_wrap": "anywhere"},
+                    style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
                 ),
-                muted(
-                    rx.cond(
-                        State.is_phishing,
-                        "Jangan dibuka atau diisi data apa pun.",
-                        "Tidak ada ciri phishing yang menonjol.",
-                    )
+                muted(State.reason),
+                rx.hstack(
+                    rx.badge(State.decision_source, color_scheme="gray", variant="soft"),
+                    spacing="2",
                 ),
                 spacing="1",
                 align="start",
@@ -178,33 +175,40 @@ def verdict_card() -> rx.Component:
 def probability_card() -> rx.Component:
     return card(
         card_title("activity", "Peluang phishing"),
-        rx.box(
-            rx.recharts.pie_chart(
-                rx.recharts.pie(
-                    data=State.prob_data,
-                    data_key="value",
-                    name_key="name",
-                    inner_radius=62,
-                    outer_radius=84,
-                    start_angle=90,
-                    end_angle=-270,
-                    stroke="none",
+        rx.cond(
+            State.probability_pct != "—",
+            rx.box(
+                rx.recharts.pie_chart(
+                    rx.recharts.pie(
+                        data=State.prob_data,
+                        data_key="value",
+                        name_key="name",
+                        inner_radius=62,
+                        outer_radius=84,
+                        start_angle=90,
+                        end_angle=-270,
+                        stroke="none",
+                    ),
+                    width="100%",
+                    height=210,
                 ),
-                width="100%",
-                height=210,
-            ),
-            rx.flex(
-                rx.text(
-                    State.probability_pct,
-                    style={"font_size": "1.6rem", "font_weight": "700", "line_height": "1.1"},
+                rx.flex(
+                    rx.text(
+                        State.probability_pct,
+                        style={"font_size": "1.6rem", "font_weight": "700", "line_height": "1.1"},
+                    ),
+                    muted("phishing", size="1"),
+                    direction="column",
+                    align="center",
+                    justify="center",
+                    style={"position": "absolute", "inset": "0", "pointer_events": "none"},
                 ),
-                muted("phishing", size="1"),
-                direction="column",
-                align="center",
-                justify="center",
-                style={"position": "absolute", "inset": "0", "pointer_events": "none"},
+                style={"position": "relative", "width": "100%", "margin_top": "6px"},
             ),
-            style={"position": "relative", "width": "100%", "margin_top": "6px"},
+            rx.box(
+                muted("Tidak dihitung (domain tepercaya).", size="2"),
+                style={"height": "210px", "display": "flex", "align_items": "center", "justify_content": "center"},
+            ),
         ),
         rx.hstack(
             rx.hstack(

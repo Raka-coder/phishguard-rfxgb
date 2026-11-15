@@ -22,9 +22,24 @@ def test_check_legitimate_200():
     body = response.json()
     assert body["label"] == 1
     assert body["label_name"] == "LEGITIMATE"
-    assert 0 <= body["probability"] <= 1
+    assert body["verdict"] == "LEGITIMATE"
+    assert body["decision_source"] == "allowlist"
+    assert body["probability"] is None
+    assert body["top_features"] == []
+    assert isinstance(body["reason"], str)
     assert isinstance(body["inference_ms"], (int, float))
-    assert set(body) == {"url", "label", "label_name", "probability", "inference_ms", "top_features"}
+    assert set(body) == {"url", "label", "label_name", "verdict", "probability", "inference_ms", "top_features", "decision_source", "reason"}
+
+
+def test_check_model_path_legitimate_200():
+    response = client.post("/check", json={"url": "https://www.bbc.com"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["label_name"] == "LEGITIMATE"
+    assert body["verdict"] == "LEGITIMATE"
+    assert body["decision_source"] == "model"
+    assert body["probability"] is not None
+    assert 0 <= body["probability"] <= 1
 
 
 def test_check_phishing_200():
@@ -33,8 +48,11 @@ def test_check_phishing_200():
     body = response.json()
     assert body["label"] == 0
     assert body["label_name"] == "PHISHING"
+    assert body["verdict"] == "PHISHING"
+    assert body["decision_source"] == "model"
     assert body["probability"] > 0.8
     assert 0 <= body["probability"] <= 1
+    assert isinstance(body["reason"], str)
     assert isinstance(body["inference_ms"], (int, float))
 
 
@@ -83,7 +101,9 @@ def test_cors_preflight_allows_reflex_origin():
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
 
 
-def test_cors_rejects_unknown_origin():
+def test_vercel_user_content_not_allowlisted():
+    body = client.post("/check", json={"url": "https://phishing-test.vercel.app/login"}).json()
+    assert body["decision_source"] != "allowlist"
     response = client.options(
         "/check",
         headers={"Origin": "http://evil.example", "Access-Control-Request-Method": "POST"},

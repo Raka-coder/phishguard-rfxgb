@@ -71,11 +71,14 @@ class State(rx.State):
     has_result: bool = False
     submitted_url: str = ""
     label_name: str = ""
+    verdict: str = ""
     probability_pct: str = ""
     bar_width: str = "0%"
     prob_data: list[dict] = []
     inference_ms: str = ""
     top_features: list[dict] = []
+    decision_source: str = ""
+    reason: str = ""
 
     @rx.var
     def is_phishing(self) -> bool:
@@ -83,7 +86,11 @@ class State(rx.State):
 
     @rx.var
     def verdict_color(self) -> str:
-        return "red" if self.is_phishing else "green"
+        if self.label_name == "PHISHING":
+            return t.RED
+        if self.label_name == "SUSPICIOUS":
+            return t.YELLOW
+        return t.GREEN
 
     @rx.event
     def set_url(self, value: str):
@@ -124,15 +131,24 @@ class State(rx.State):
         except ValueError:
             self.error = "Respons API tidak dapat dibaca."
         else:
-            probability = float(body.get("probability") or 0.0)
+            probability_raw = body.get("probability")
             self.submitted_url = target
             self.label_name = str(body.get("label_name", ""))
-            self.probability_pct = f"{probability * 100:.2f}%"
-            self.bar_width = f"{min(max(probability, 0.0), 1.0) * 100:.2f}%"
-            self.prob_data = [
-                {"name": "Phishing", "value": round(probability * 100, 2), "fill": t.RED},
-                {"name": "Legit", "value": round(100 - probability * 100, 2), "fill": t.GREEN},
-            ]
+            self.verdict = str(body.get("verdict", ""))
+            self.decision_source = str(body.get("decision_source", ""))
+            self.reason = str(body.get("reason", ""))
+            if probability_raw is None:
+                self.probability_pct = "—"
+                self.bar_width = "0%"
+                self.prob_data = []
+            else:
+                probability = float(probability_raw)
+                self.probability_pct = f"{probability * 100:.2f}%"
+                self.bar_width = f"{min(max(probability, 0.0), 1.0) * 100:.2f}%"
+                self.prob_data = [
+                    {"name": "Phishing", "value": round(probability * 100, 2), "fill": t.RED},
+                    {"name": "Legit", "value": round(100 - probability * 100, 2), "fill": t.GREEN},
+                ]
             self.inference_ms = f"{float(body.get('inference_ms') or 0.0):.2f}"
             self.top_features = build_feature_rows(body.get("top_features") or [])
             self.has_result = True
