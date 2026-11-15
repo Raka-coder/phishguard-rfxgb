@@ -16,14 +16,14 @@
  "selection": "rata-rata F1 kelas phishing (label 0) pada 5-fold CV di train",
  "model_a": {
   "lr": {
-   "cv_f1_phishing_mean": 0.99987,
-   "cv_f1_phishing_std": 8.2e-05,
+   "cv_f1_phishing_mean": 0.999845,
+   "cv_f1_phishing_std": 5.9e-05,
    "cv_folds": [
-    0.999845,
-    0.999938,
+    0.999814,
     0.999907,
-    0.999721,
-    0.999938
+    0.999907,
+    0.999845,
+    0.999752
    ],
    "params": {
     "C": 1.0,
@@ -41,7 +41,7 @@
     "verbose": 0,
     "warm_start": false
    },
-   "fit_seconds": 7.1
+   "fit_seconds": 4.7
   },
   "rf": {
    "cv_f1_phishing_mean": 1.0,
@@ -74,16 +74,16 @@
     "verbose": 0,
     "warm_start": false
    },
-   "fit_seconds": 152.1
+   "fit_seconds": 56.1
   },
   "xgb": {
-   "cv_f1_phishing_mean": 0.999994,
-   "cv_f1_phishing_std": 1.2e-05,
+   "cv_f1_phishing_mean": 0.999975,
+   "cv_f1_phishing_std": 2.3e-05,
    "cv_folds": [
     1.0,
-    1.0,
+    0.999938,
     0.999969,
-    1.0,
+    0.999969,
     1.0
    ],
    "params": {
@@ -128,21 +128,21 @@
     "validate_parameters": null,
     "verbosity": null
    },
-   "fit_seconds": 17.2
+   "fit_seconds": 18.5
   },
   "best": "rf",
   "n_features": 50
  },
  "model_b": {
   "lr": {
-   "cv_f1_phishing_mean": 0.98684,
-   "cv_f1_phishing_std": 0.000345,
+   "cv_f1_phishing_mean": 0.987021,
+   "cv_f1_phishing_std": 0.001222,
    "cv_folds": [
-    0.987324,
-    0.986599,
-    0.986999,
-    0.986324,
-    0.986952
+    0.98513,
+    0.987561,
+    0.987646,
+    0.986171,
+    0.988598
    ],
    "params": {
     "C": 1.0,
@@ -160,17 +160,17 @@
     "verbose": 0,
     "warm_start": false
    },
-   "fit_seconds": 3.5
+   "fit_seconds": 3.9
   },
   "rf": {
-   "cv_f1_phishing_mean": 0.995161,
-   "cv_f1_phishing_std": 0.000324,
+   "cv_f1_phishing_mean": 0.994944,
+   "cv_f1_phishing_std": 0.000404,
    "cv_folds": [
-    0.995506,
-    0.995251,
-    0.995096,
-    0.995377,
-    0.994573
+    0.994323,
+    0.995036,
+    0.995162,
+    0.994696,
+    0.995503
    ],
    "params": {
     "bootstrap": true,
@@ -193,17 +193,17 @@
     "verbose": 0,
     "warm_start": false
    },
-   "fit_seconds": 128.0
+   "fit_seconds": 60.2
   },
   "xgb": {
-   "cv_f1_phishing_mean": 0.996239,
-   "cv_f1_phishing_std": 0.000251,
+   "cv_f1_phishing_mean": 0.996208,
+   "cv_f1_phishing_std": 0.00028,
    "cv_folds": [
-    0.99662,
-    0.996274,
-    0.995934,
-    0.996368,
-    0.995997
+    0.995655,
+    0.996338,
+    0.99631,
+    0.996308,
+    0.996431
    ],
    "params": {
     "objective": "binary:logistic",
@@ -247,12 +247,12 @@
     "validate_parameters": null,
     "verbosity": null
    },
-   "fit_seconds": 13.9
+   "fit_seconds": 15.5
   },
   "best": "xgb",
   "n_features": 19
  },
- "trained_at": "2026-11-15T05:27:42+00:00",
+ "trained_at": "2026-11-15T09:56:36+00:00",
  "label_order": {
   "P(phishing)": "predict_proba[:, 0]"
  }
