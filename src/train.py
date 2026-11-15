@@ -16,7 +16,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import f1_score, make_scorer
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
@@ -24,6 +24,8 @@ from xgboost import XGBClassifier
 from src.config import (
     CV_FOLDS,
     DATA_PARQUET,
+    EXPECTED_N_TEST,
+    EXPECTED_N_TRAIN,
     FULL_FEATURES,
     LABEL_PHISH,
     LR_MAX_ITER,
@@ -38,6 +40,7 @@ from src.config import (
     THRESHOLD,
     TLD_PROBS_PATH,
     URL_FEATURES,
+    make_split,
 )
 from src.feature_utils import to_frame
 
@@ -122,9 +125,11 @@ def main() -> int:
     print(f"Data: {len(df)} baris, {len(numeric)} fitur Model A. Label: {df['label'].value_counts().to_dict()}")
 
     y = df["label"].to_numpy(dtype=np.int8)
-    train_idx, _ = train_test_split(
-        np.arange(len(df)), test_size=TEST_SIZE, stratify=y, random_state=SEED
-    )
+    train_idx, test_idx = make_split(df)
+    if not args.sample and (len(train_idx), len(test_idx)) != (EXPECTED_N_TRAIN, EXPECTED_N_TEST):
+        print(f"Split tak terduga: {len(train_idx)}/{len(test_idx)}, harap {EXPECTED_N_TRAIN}/{EXPECTED_N_TEST}")
+        return 1
+    print(f"Split: train={len(train_idx)}, test={len(test_idx)} (test tidak disentuh saat training)")
 
     urls = df["URL"].astype(str)
     tld_probs, tld_default = build_tld_probs(urls.iloc[train_idx], y[train_idx])

@@ -1,6 +1,10 @@
-"""Konstanta proyek: path data, seed, arah label, dan daftar kolom fitur."""
+"""Konstanta proyek: path data, seed, arah label, daftar kolom fitur, dan split bersama."""
 
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
@@ -18,6 +22,19 @@ LABEL_PHISH = 0
 
 EXPECTED_ROWS = 235_795
 EXPECTED_LABEL_COUNTS = {LABEL_PHISH: 100_945, LABEL_LEGIT: 134_850}
+EXPECTED_N_TRAIN = 188_636
+EXPECTED_N_TEST = 47_159
+
+
+def make_split(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Indeks train/test stratified — satu sumber kebenaran untuk train.py dan evaluate.py."""
+    idx_train, idx_test = train_test_split(
+        np.arange(len(df)),
+        test_size=TEST_SIZE,
+        stratify=df["label"].to_numpy(),
+        random_state=SEED,
+    )
+    return np.sort(idx_train), np.sort(idx_test)
 
 IDENTITY_COLUMNS = ["URL", "Domain", "TLD", "Title", "label"]
 

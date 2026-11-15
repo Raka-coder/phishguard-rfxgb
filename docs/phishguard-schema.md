@@ -96,6 +96,16 @@ Aturan kontrak:
 | `docs/stats.json` | `{"model_b": {"features", "importances", "class_means": {"phishing": {...}, "legit": {...}}, "best"}, "model_a": {...}}` — dipakai T7 untuk top-k fitur | `src/train.py` |
 | `docs/hasil_evaluasi.md` | Tabel metrik, confusion matrix, daftar ≥3 FP & ≥3 FN dengan URL, label benar, probabilitas | `src/evaluate.py` |
 
+Kontrak evaluasi (T6):
+- Split **tidak** dibuat ulang secara ad-hoc: `evaluate.py` memakai `config.make_split(df)` (fungsi yang sama
+  dengan `train.py`), sehingga test set identik (188.636 train / 47.159 test) dan assertion ukurannya wajib.
+- Metrik dihitung dengan `pos_label=0` (phishing). FP = aktual 1 diprediksi 0; FN = aktual 0 diprediksi 1;
+  confusion matrix dilaporkan dengan label baris/kolom eksplisit 0=phishing, 1=legit.
+- Contoh FP/FN: Model B, deduplikasi per URL, diurutkan berdasarkan keyakinan (FP: P tertinggi; FN: P terendah),
+  maksimum 10 baris per tabel, total ditulis di ringkasan. Kolom "top-3 fitur menyimpang" memakai
+  `docs/stats.json` (`class_means` kelas asli).
+- `evaluate_url_list(urls: list[str]) -> list[dict]` disediakan untuk T11: hanya string URL, tanpa dataset.
+
 Kontrak training (T5):
 - Split stratified 80/20 seed 42. **Test set tidak disentuh saat training** — hanya T6 yang menyentuhnya.
 - Pemilihan model: 5-fold `StratifiedKFold` (shuffle, seed 42) **pada train saja**, skor = F1 kelas phishing
