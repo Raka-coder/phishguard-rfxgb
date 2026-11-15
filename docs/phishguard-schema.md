@@ -71,17 +71,17 @@ inference akan menimbulkan train/serve skew.
 | `NoOfDegitsInURL` / `DegitRatioInURL` | jumlah digit / dibagi panjang URL |
 | `NoOfEqualsInURL`, `NoOfQMarkInURL`, `NoOfAmpersandInURL` | `url.count('=')`, `count('?')`, `count('&')` |
 | `NoOfOtherSpecialCharsInURL` / `SpacialCharRatioInURL` | jumlah karakter di himpunan `,;:%~+&*[]()!$#'"?=/@_-` / dibagi panjang URL |
-| `CharContinuationRate` | run alfanumerik terpanjang / panjang URL |
+| `TLDLegitimateProb` | P(legit) untuk TLD URL, dari lookup yang dihitung **pada train split** (Laplace: `(legit+1)/(n+2)`), default = rasio global train; disimpan di `src/tld_probs.json` |
 | `HasObfuscation` | `1` bila ada `%`, `@`, `\`, karakter non-ASCII, atau host berupa IP |
 | `NoOfObfuscatedChar` / `ObfuscationRatio` | jumlah karakter obfuscation / dibagi panjang URL |
 
 Aturan kontrak:
 1. Deterministik & murni (tanpa jaringan, tanpa I/O); 42 µs/URL → ~10 detik untuk 235.795 URL.
 2. Semua nilai numerik float — tanpa `None`/NaN, input kosong/rusak menghasilkan 0.
-3. Urutan kolom output = urutan `URL_FEATURES`; `feature_utils.to_frame(urls)` menjamin itu.
-4. Unit test di `tests/test_features.py` (nama/urutan kolom, IP host, input kosong, `to_frame`).
-5. Definisi yang tidak bisa dipulihkan dari string (`URLSimilarityIndex`, `URLCharProb`,
-   `TLDLegitimateProb`) hanya ada di Model A.
+3. Urutan kolom output = urutan `URL_FEATURES`; `feature_utils.to_frame(urls, tld_probs, default)` menjamin itu.
+4. Unit test di `tests/test_features.py` (nama/urutan kolom, IP host, input kosong, lookup TLD, `to_frame`).
+5. **Tidak masuk Model B**: `URLSimilarityIndex`, `URLCharProb` (butuh statistik korpus), `IsUnresolvableHost`
+   (butuh DNS/jaringan), `CharContinuationRate` (definisi dataset tidak dapat direproduksi dari string URL).
 
 ---
 
@@ -89,12 +89,20 @@ Aturan kontrak:
 
 | Artefak | Isi | Dibuat oleh |
 |---|---|---|
-| `src/model.pkl` | Model B (URL-only) terbaik — pipeline: imputer(optional) + estimator (RF/XGBoost) | `src/train.py` |
+| `src/model.pkl` | Model B (URL-only) terbaik — `sklearn.Pipeline`: imputer(median) + estimator (LR/RF/XGBoost) | `src/train.py` |
 | `src/model_full.pkl` | Model A (full fitur) terbaik | `src/train.py` |
-| `docs/metrics.json` | `{"model_b": {"rf": {...}, "xgb": {...}}, "model_a": {...}, "split": {"seed":42, "test_size":0.2, "stratified":true}, "trained_at": "..."}` | `src/train.py` |
+| `src/tld_probs.json` | `{"default": float, "map": {tld: P(legit)}}` dihitung dari **train split** saja; dipakai `extract_features` untuk `TLDLegitimateProb` | `src/train.py` |
+| `docs/metrics.json` | `{"model_b": {"lr","rf","xgb": {"cv_f1_phishing_mean","cv_f1_phishing_std","cv_folds","params","fit_seconds"}, "best", "n_features"}, "model_a": {...}, "split": {"seed":42,"test_size":0.2,"stratified":true,"n_train","n_test","cv_folds":5}, "selection", "label", "trained_at"}` | `src/train.py` |
+| `docs/stats.json` | `{"model_b": {"features", "importances", "class_means": {"phishing": {...}, "legit": {...}}, "best"}, "model_a": {...}}` — dipakai T7 untuk top-k fitur | `src/train.py` |
 | `docs/hasil_evaluasi.md` | Tabel metrik, confusion matrix, daftar ≥3 FP & ≥3 FN dengan URL, label benar, probabilitas | `src/evaluate.py` |
 
-Model "terbaik" dipilih berdasar **F1 kelas phishing** pada validation/test set; keputusan disimpan di `metrics.json`.
+Kontrak training (T5):
+- Split stratified 80/20 seed 42. **Test set tidak disentuh saat training** — hanya T6 yang menyentuhnya.
+- Pemilihan model: 5-fold `StratifiedKFold` (shuffle, seed 42) **pada train saja**, skor = F1 kelas phishing
+  (`pos_label=0`), model terbaik per proyeksi di-refit pada seluruh train lalu disimpan.
+- Imputer di-fit hanya pada train (ada di dalam Pipeline, sehingga ikut tersimpan).
+- F1 phishing selalu `pos_label=LABEL_PHISH`; `P(phishing) = predict_proba[:, 0]`.
+- Hyperparameter tercatat lengkap di `metrics.json` (`params`) agar hasil dapat direproduksi.
 
 ---
 

@@ -37,6 +37,17 @@ def test_empty_and_garbage_input_returns_numbers():
         assert all(v == v for v in feats.values())  # tidak ada NaN
 
 
+def test_tld_legit_prob_uses_lookup_with_default():
+    probs = {"xyz": 0.2, "com": 0.9}
+    assert extract_features("https://a.xyz", probs)["TLDLegitimateProb"] == 0.2
+    assert extract_features("https://a.com", probs)["TLDLegitimateProb"] == 0.9
+    assert extract_features("https://a.unknown", probs, default_tld_prob=0.55)["TLDLegitimateProb"] == 0.55
+
+
+def test_tld_legit_prob_default_without_lookup():
+    assert extract_features("https://www.wikipedia.org")["TLDLegitimateProb"] == 0.5
+
+
 def test_to_frame_keeps_column_order():
     frame = to_frame(["https://a.com", "http://b.net/path"])
     assert list(frame.columns) == URL_FEATURES

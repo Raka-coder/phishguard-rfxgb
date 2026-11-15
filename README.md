@@ -86,7 +86,8 @@ Semua perintah Python **wajib** lewat `uv run` — jangan pakai `python`/`pip` g
 docs/                 4 dokumen spesifikasi + hasil evaluasi (metrics.json, hasil_evaluasi.md)
 data/                 PhiUSIIL.csv (54 MB, Kaggle), PhiUSIIL.parquet (15 MB) — keduanya gitignored
 scripts/              inspect_data.py, convert_parquet.py, test_live_urls.py
-src/                  config.py (path, seed, label), feature_utils.py, train.py, evaluate.py, predict.py
+src/                  config.py (path, seed, label, daftar fitur), feature_utils.py, train.py, evaluate.py, predict.py
+src/model.pkl         artefak Model B terbaik (gitignored), src/model_full.pkl, src/tld_probs.json
 api/main.py           FastAPI :8001 — POST /check, GET /health
 app/app.py            entrypoint Reflex (rx.App + add_page)
 app/app_state.py      rx.State + event handler
@@ -121,7 +122,7 @@ rxconfig.py, uv.lock, pyproject.toml
 ## Peta jalan
 
 T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ✅ ·
-T5 `train.py` · T6 `evaluate.py` · T7 `predict.py` + test · T8 API · T9 UI index · T10 halaman evaluasi ·
+T5 `train.py` ✅ · T6 `evaluate.py` · T7 `predict.py` + test · T8 API · T9 UI index · T10 halaman evaluasi ·
 T11 uji URL live · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
 
 ## Etika & lisensi

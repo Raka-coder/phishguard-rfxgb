@@ -79,7 +79,7 @@ Model B tanpa sengaja menerima fitur konten.
 
 - `src/config.py` — konstanta: path, seed 42, daftar kolom proyeksi A & B, konstanta label `LABEL_LEGIT=1, LABEL_PHISH=0`, threshold 0.5.
 - `src/feature_utils.py` — fungsi murni `extract_features(url: str) -> dict` (fitur leksikal dari string) + helper konversi dict → DataFrame kolom urut sesuai Model B.
-- `src/train.py` — baca Parquet → split stratified (seed 42) → latih RF & XGBoost untuk kedua proyeksi → simpan artefak + `docs/metrics.json` (metrik training).
+- `src/train.py` — baca Parquet → verifikasi dtype kolom numerik = `FULL_FEATURES` → split stratified 80/20 (seed 42) → latih LR/RF/XGBoost untuk kedua proyeksi → pilih terbaik per proyeksi via **5-fold CV pada train** (F1 kelas phishing) → refit & simpan `model.pkl`, `model_full.pkl`, `src/tld_probs.json`, `docs/metrics.json`, `docs/stats.json`.
 - `src/evaluate.py` — evaluasi Model A & Model B pada test set → precision/recall/F1/accuracy, confusion matrix, **kumpulkan contoh FP & FN nyata** → tulis `docs/hasil_evaluasi.md`.
 - `src/predict.py` — `predict_url(url) -> {"url","label","label_name","probability","inference_ms","top_features"}`; memuat `model.pkl` sekali (singleton) agar latensi < 200 ms.
 

@@ -25,5 +25,9 @@ state.json
 .env.local
 kaggle.json
 
+# artefak model — dibuat ulang oleh src/train.py
+src/*.pkl
+src/tld_probs.json
+
 # tooling lokal (knowledge graph agent)
 .megamemory/

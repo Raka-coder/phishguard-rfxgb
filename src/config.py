@@ -21,7 +21,19 @@ EXPECTED_LABEL_COUNTS = {LABEL_PHISH: 100_945, LABEL_LEGIT: 134_850}
 
 IDENTITY_COLUMNS = ["URL", "Domain", "TLD", "Title", "label"]
 
-# Model A: semua kolom numerik dataset (tanpa kolom identitas/teks).
+MODEL_B_PATH = ROOT / "src" / "model.pkl"
+MODEL_A_PATH = ROOT / "src" / "model_full.pkl"
+TLD_PROBS_PATH = ROOT / "src" / "tld_probs.json"
+METRICS_PATH = DOCS_DIR / "metrics.json"
+STATS_PATH = DOCS_DIR / "stats.json"
+
+CV_FOLDS = 5
+N_ESTIMATORS_RF = 300
+N_ESTIMATORS_XGB = 400
+LR_MAX_ITER = 2000
+
+# Model A: semua kolom numerik dataset (tanpa label + kolom teks URL/Domain/TLD/Title).
+# Diverifikasi saat training: kolom numerik Parquet harus sama persis dengan daftar ini.
 FULL_FEATURES = [
     "URLLength", "DomainLength", "IsDomainIP", "URLSimilarityIndex", "CharContinuationRate",
     "TLDLegitimateProb", "URLCharProb", "TLDLength", "NoOfSubDomain", "HasObfuscation",
@@ -39,11 +51,13 @@ FULL_FEATURES = [
 # Model B: dihitung ulang dari string URL oleh feature_utils.extract_features(), bukan disalin dari
 # kolom dataset — definisi beberapa kolom dataset (NoOfLettersInURL, CharContinuationRate) tidak bisa
 # direproduksi dari string sehingga menyalinnya menimbulkan train/serve skew.
-# UrlSimilarityIndex, URLCharProb, TLDLegitimateProb butuh statistik korpus/halaman -> hanya Model A.
+# Dikecualikan: URLSimilarityIndex/URLCharProb (statistik korpus), IsUnresolvableHost (butuh DNS),
+# CharContinuationRate (definisi dataset tidak reproducible — dibuang atas keputusan owner).
+# TLDLegitimateProb dihitung dari lookup TLD hasil training (src/tld_probs.json).
 URL_FEATURES = [
     "URLLength", "DomainLength", "TLDLength", "NoOfSubDomain", "IsDomainIP", "IsHTTPS",
     "NoOfLettersInURL", "LetterRatioInURL", "NoOfDegitsInURL", "DegitRatioInURL",
     "NoOfEqualsInURL", "NoOfQMarkInURL", "NoOfAmpersandInURL", "NoOfOtherSpecialCharsInURL",
-    "SpacialCharRatioInURL", "CharContinuationRate", "HasObfuscation", "NoOfObfuscatedChar",
-    "ObfuscationRatio",
+    "SpacialCharRatioInURL", "HasObfuscation", "NoOfObfuscatedChar", "ObfuscationRatio",
+    "TLDLegitimateProb",
 ]

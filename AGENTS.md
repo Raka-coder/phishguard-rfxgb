@@ -1,7 +1,9 @@
 # PhishGuard — agent notes
 
 ## State of the repo
-T1–T4 are done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, `src/config.py` (paths, seed 42, label constants, expected counts, `FULL_FEATURES` = 50 numeric columns, `URL_FEATURES` = 19), `src/feature_utils.py` (`extract_features(url) -> dict` + `to_frame(urls)`, 42 µs/URL), `scripts/inspect_data.py`, `scripts/convert_parquet.py`, `tests/test_features.py` (6 tests). **No model, no API, no pages yet** — next work is T5 (`train.py`). The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
+T1–T5 are done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, `src/config.py`, `src/feature_utils.py` (`extract_features(url, tld_probs, default)` / `to_frame(...)`), `src/train.py` (LR/RF/XGB × model A/B, 5-fold CV on train, writes `src/model.pkl`, `src/model_full.pkl`, `src/tld_probs.json`, `docs/metrics.json`, `docs/stats.json`), `scripts/inspect_data.py`, `scripts/convert_parquet.py`, `tests/test_features.py`. **No evaluate/API/pages yet** — next is T6 (`evaluate.py`, the first code allowed to touch the test set). The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
+
+Model artifacts are gitignored (`src/*.pkl`, `src/tld_probs.json`) — regenerate with `uv run python src/train.py` (full run ≈ 235k rows); `docs/metrics.json` + `docs/stats.json` are committed. `uv run python src/train.py --sample 4000` is the smoke run (≈14 s).
 
 Write user-facing copy, docs and commit messages in Indonesian to match. Remote: `https://github.com/Raka-coder/phishguard-rfxgb`.
 
@@ -54,7 +56,9 @@ Notes: dataset spelling is `Degit`/`Spacial` (keep it); `equals`, `qmark`, `ampe
 
 ## Hard constraints
 - **Two models by design:** Model A (`src/model_full.pkl`, 50 numeric dataset columns, report only) vs Model B (`src/model.pkl`, 19 lexical features, served by API/UI). Putting content features in Model B is leakage, not an improvement.
-- **Model B is recomputed, not copied.** Train it from `feature_utils.to_frame(df.URL)`, never from the dataset's feature columns: `NoOfLettersInURL`, `NoOfOtherSpecialCharsInURL` and `CharContinuationRate` in the CSV cannot be reproduced from a URL string (checked on 2,000 rows), so copying them creates train/serve skew. Changing a definition in `extract_features()` invalidates the model — retrain.
+- **Model B is recomputed, not copied.** Train it from `feature_utils.to_frame(df.URL, tld_probs, default)`, never from the dataset's feature columns: `NoOfLettersInURL`, `NoOfOtherSpecialCharsInURL` and `CharContinuationRate` in the CSV cannot be reproduced from a URL string (checked on 2,000 rows), so copying them creates train/serve skew. `CharContinuationRate`, `URLSimilarityIndex`, `URLCharProb`, `IsUnresolvableHost` are deliberately **not** in `URL_FEATURES`; `TLDLegitimateProb` comes from `src/tld_probs.json` (fit on train only, Laplace-smoothed). Changing a definition in `extract_features()` invalidates the model — retrain.
+- **Test set is untouched until T6.** T5 selects models with 5-fold `StratifiedKFold` **on train only**; the 20% holdout is split there but never fitted or scored. Do not add evaluation code to `train.py`.
+- **F1 is always phishing-as-positive:** `pos_label=LABEL_PHISH` (0) for scoring/CV, and `P(phishing) = predict_proba[:, 0]`.
 - **Inline/delegated layout quirk:** `sys.path` bootstrap is only in `scripts/`; `tests/` relies on `[tool.pytest.ini_options] pythonpath = ["."]` in `pyproject.toml`, and `src/*.py` modules import each other as `from src.x import y`, so run from the repo root.
 - **No network at inference.** `extract_features()` is a pure string->dict function; no fetching, resolving, or probing the analysed URL (ethics clause). Live test URLs come from PhishTank/Tranco lists as text only.
 - **Ports:** FastAPI must be **8001**; 8000 belongs to the Reflex backend.
