@@ -5,11 +5,61 @@ import os
 import httpx
 import reflex as rx
 
+from app import style as t
+
 API_URL = os.getenv("PHISHGUARD_API_URL", "http://localhost:8001/check")
 
 # Client module-level: import httpcore/ssl terjadi saat startup, bukan di request pertama
 # (menghindari event loop terblokir ~1 detik pada klik pertama), sekaligus reuse koneksi.
 _CLIENT = httpx.AsyncClient(timeout=10.0)
+
+# Nama fitur dataset -> label yang bisa dibaca orang awam.
+FEATURE_LABELS = {
+    "URLLength": "Panjang URL",
+    "DomainLength": "Panjang domain",
+    "TLDLength": "Panjang akhiran domain (TLD)",
+    "NoOfSubDomain": "Jumlah subdomain",
+    "IsDomainIP": "Domain berupa alamat IP",
+    "IsHTTPS": "Memakai HTTPS",
+    "NoOfLettersInURL": "Jumlah huruf",
+    "LetterRatioInURL": "Rasio huruf",
+    "NoOfDegitsInURL": "Jumlah angka",
+    "DegitRatioInURL": "Rasio angka",
+    "NoOfEqualsInURL": "Jumlah tanda =",
+    "NoOfQMarkInURL": "Jumlah tanda ?",
+    "NoOfAmpersandInURL": "Jumlah tanda &",
+    "NoOfOtherSpecialCharsInURL": "Jumlah karakter khusus",
+    "SpacialCharRatioInURL": "Rasio karakter khusus",
+    "HasObfuscation": "Ada penyamaran karakter",
+    "NoOfObfuscatedChar": "Jumlah karakter tersamar",
+    "ObfuscationRatio": "Rasio karakter tersamar",
+    "TLDLegitimateProb": "Skor reputasi TLD",
+}
+BOOL_FEATURES = {"IsDomainIP", "IsHTTPS", "HasObfuscation"}
+IMPACT_DIR = {"meningkatkan risiko": "up", "menurunkan risiko": "down"}
+
+
+def build_feature_rows(items: list[dict]) -> list[dict]:
+    """Ubah top_features API menjadi baris tampilan (label, nilai teks, arah dampak)."""
+    rows = []
+    for item in items or []:
+        name = str(item.get("feature", ""))
+        value = float(item.get("value") or 0.0)
+        impact = str(item.get("impact", ""))
+        if name in BOOL_FEATURES:
+            shown = "Ya" if value >= 0.5 else "Tidak"
+        else:
+            shown = f"{value:.3g}"
+        rows.append(
+            {
+                "feature": name,
+                "label": FEATURE_LABELS.get(name, name),
+                "value": shown,
+                "impact": impact,
+                "dir": IMPACT_DIR.get(impact, "flat"),
+            }
+        )
+    return rows
 
 
 class State(rx.State):
@@ -19,8 +69,11 @@ class State(rx.State):
     loading: bool = False
     error: str = ""
     has_result: bool = False
+    submitted_url: str = ""
     label_name: str = ""
     probability_pct: str = ""
+    bar_width: str = "0%"
+    prob_data: list[dict] = []
     inference_ms: str = ""
     top_features: list[dict] = []
 
@@ -37,13 +90,19 @@ class State(rx.State):
         self.url = value
 
     @rx.event
+    def use_example(self, value: str):
+        """Isi input dengan URL contoh lalu langsung periksa."""
+        self.url = value
+        return State.check_url
+
+    @rx.event
     async def check_url(self):
         """POST ke API; Enter di input dan klik tombol sama-sama memicu form submit."""
         target = self.url.strip()
         self.error = ""
         self.has_result = False
         if not target:
-            self.error = "URL tidak boleh kosong."
+            self.error = "URL tidak boleh kosong. Tempel alamat lengkap, misalnya https://contoh.com/login."
             return
 
         self.loading = True
@@ -65,17 +124,17 @@ class State(rx.State):
         except ValueError:
             self.error = "Respons API tidak dapat dibaca."
         else:
+            probability = float(body.get("probability") or 0.0)
+            self.submitted_url = target
             self.label_name = str(body.get("label_name", ""))
-            self.probability_pct = f"{float(body.get('probability') or 0.0) * 100:.2f}%"
-            self.inference_ms = f"{float(body.get('inference_ms') or 0.0):.2f}"
-            self.top_features = [
-                {
-                    "feature": str(item.get("feature", "")),
-                    "value": f"{float(item.get('value') or 0.0):.3g}",
-                    "impact": str(item.get("impact", "")),
-                }
-                for item in (body.get("top_features") or [])
+            self.probability_pct = f"{probability * 100:.2f}%"
+            self.bar_width = f"{min(max(probability, 0.0), 1.0) * 100:.2f}%"
+            self.prob_data = [
+                {"name": "Phishing", "value": round(probability * 100, 2), "fill": t.RED},
+                {"name": "Legit", "value": round(100 - probability * 100, 2), "fill": t.GREEN},
             ]
+            self.inference_ms = f"{float(body.get('inference_ms') or 0.0):.2f}"
+            self.top_features = build_feature_rows(body.get("top_features") or [])
             self.has_result = True
         finally:
             self.loading = False
