@@ -1,59 +1,65 @@
-"""Token tampilan PhishGuard: dashboard gelap ungu (referensi Nightfall).
+"""Token tampilan PhishGuard: gaya Persona 5 (hitam, merah, putih, bentuk miring).
+
+Nama token lama (PURPLE, CARD, dst.) dipertahankan supaya halaman lain tidak perlu
+diubah: nilainya dipetakan ke palet Persona 5.
 
 Aturan warna:
-- PURPLE : identitas, tombol utama, aksen
-- RED    : phishing, error, risiko naik
-- GREEN  : legit, risiko turun
-- ORANGE/YELLOW : seri tambahan di grafik
+- RED (aksen) : identitas, tombol utama, seri grafik Model B
+- WHITE       : seri grafik Model A, border kartu
+- PHISH_RED   : phishing, error, risiko naik
+- GREEN       : legit, risiko turun
 """
 
 import reflex as rx
 
 # --- Permukaan --------------------------------------------------------------
-BG_PAGE = "#0A0710"
-WINDOW = "#100D16"
-SIDEBAR = "#0D0A13"
-CARD = "#17141E"
-CARD_2 = "#1E1A27"
-LINE = "#2B2736"
-INPUT_BG = "#0E0B14"
+BG_PAGE = "#0B0B0B"
+WINDOW = "#0B0B0B"
+SIDEBAR = "#000000"
+CARD = "#000000"
+CARD_2 = "#1A1A1A"
+LINE = "#3A3A3A"
+INPUT_BG = "#FFFFFF"
 
 # --- Teks -------------------------------------------------------------------
-TEXT = "#F2F0F8"
-MUTED = "#A19BB5"
+TEXT = "#FFFFFF"
+MUTED = "#C9C9C9"
 WHITE = "#FFFFFF"
+BLACK = "#000000"
 
 # --- Aksen ------------------------------------------------------------------
-PURPLE = "#8B5CF6"
-PURPLE_LIGHT = "#B79CFF"
-PURPLE_DEEP = "#4C1D95"
-RED = "#EF4444"
-RED_SOLID = "#DC2626"     # latar badge dengan teks putih
-ORANGE = "#F97316"
-YELLOW = "#EAB308"
-GREEN = "#22C55E"
-GREEN_SOLID = "#15803D"   # latar badge dengan teks putih
-NEUTRAL_SOLID = "#3B3748"
+P5_RED = "#E60012"
+PURPLE = P5_RED            # nama lama: aksen utama
+PURPLE_LIGHT = "#FF4455"   # teks/ikon aksen di atas hitam
+PURPLE_DEEP = "#7A0009"
+RED = "#FF4455"            # phishing (teks/grafik di atas hitam)
+RED_SOLID = "#E60012"      # latar badge dengan teks putih
+ORANGE = "#FFFFFF"         # seri kedua di grafik (putih)
+YELLOW = "#FFD400"
+GREEN = "#4ADE80"
+GREEN_SOLID = "#15803D"
+NEUTRAL_SOLID = "#3B3B3B"
 
-GRADIENT = "linear-gradient(135deg, #6D3BE0 0%, #9B67FF 100%)"
+GRADIENT = P5_RED  # tombol/penanda utama: merah solid
 PAGE_GLOW = (
-    "radial-gradient(900px 520px at 88% -8%, rgba(139,92,246,0.38), transparent 60%), "
-    "radial-gradient(760px 520px at -6% 108%, rgba(91,33,182,0.38), transparent 60%)"
+    "radial-gradient(#2A2A2A 2px, transparent 2px) 0 0 / 14px 14px, "
+    "linear-gradient(115deg, #E60012 0 22%, transparent 22.1%)"
 )
 
 # --- Tipografi --------------------------------------------------------------
-FONT = "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif"
-MONO_FONT = "ui-monospace, 'Cascadia Code', Consolas, monospace"
-STYLESHEETS = [
-    "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
-]
+FONT = "'Times New Roman', Times, serif"
+DISPLAY_FONT = "'P5', Impact, 'Arial Black', sans-serif"
+SERIF_FONT = "'Times New Roman', Times, serif"
+HEAVY_FONT = "'Times New Roman', Times, serif"
+MONO_FONT = "'Times New Roman', Times, serif"  # hanya 2 font: Persona 5 + Times New Roman
+STYLESHEETS = ["/p5.css"]
 
 # --- Tema Radix + style global ---------------------------------------------
-THEME = rx.theme(appearance="dark", accent_color="violet", gray_color="slate", radius="large")
-APP_STYLE = {"font_family": FONT}
+THEME = rx.theme(appearance="dark", accent_color="red", gray_color="gray", radius="none")
+APP_STYLE = {"font_family": FONT, "font_size": "18px"}
 
 # --- Kompatibilitas nama lama ----------------------------------------------
 LINK_COLOR = PURPLE_LIGHT
 ERROR_COLOR = RED
 SUCCESS_COLOR = GREEN
-ACCENT_COLOR = "violet"
+ACCENT_COLOR = "red"

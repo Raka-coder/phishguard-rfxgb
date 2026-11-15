@@ -1,0 +1,6 @@
+@font-face {
+  font-family: "P5";
+  src: url("/fonts/Persona5MenuFontPrototype-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+.p5 { font-family: "P5", Impact, "Arial Black", sans-serif; text-transform: uppercase; letter-spacing: 1px; }
