@@ -11,9 +11,9 @@ Dataset: Prasad & Chandra (2023), doi:[10.1016/j.cose.2023.103545](https://doi.o
 
 ## Status
 
-Setup dan pemodelan selesai (T1–T9): environment, inspeksi data, training dua model, evaluasi test set, inference
-`predict_url`, API FastAPI (`:8001`), dan halaman Reflex index (cek URL) sudah jalan. Halaman evaluasi (T10) dan
-uji URL live (T11) belum ada — lihat peta jalan di bawah.
+Setup dan pemodelan selesai (T1–T10): environment, inspeksi data, training dua model, evaluasi test set, inference
+`predict_url`, API FastAPI (`:8001`), halaman Reflex index (cek URL), dan halaman evaluasi (metrik + FP/FN) sudah
+jalan. Uji URL live (T11) dan poles (T12) belum ada — lihat peta jalan di bawah.
 
 ## Dataset
 
@@ -92,7 +92,8 @@ src/model.pkl         artefak Model B terbaik (gitignored), src/model_full.pkl, 
 api/main.py           FastAPI :8001 — POST /check, GET /health
 app/app.py            entrypoint Reflex (rx.App + add_page)
 app/app_state.py      rx.State: input, loading, error, hasil (flattened), is_phishing, verdict_color
-app/pages/index.py    halaman cek URL (form, spinner, error, kartu hasil + top-5 fitur)
+app/pages/            index.py (cek URL), evaluasi.py (metrik, confusion matrix, FP/FN)
+app/style.py           konstanta tampilan (warna) — persiapan restyle T13
 tests/                test_features.py, test_split.py, test_predict.py, test_api.py
 rxconfig.py, uv.lock, pyproject.toml
 ```
@@ -125,7 +126,7 @@ rxconfig.py, uv.lock, pyproject.toml
 ## Peta jalan
 
 T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ✅ ·
-T5 `train.py` ✅ · T6 `evaluate.py` ✅ · T7 `predict.py` + test ✅ · T8 API ✅ · T9 UI index ✅ · T10 halaman evaluasi ·
+T5 `train.py` ✅ · T6 `evaluate.py` ✅ · T7 `predict.py` + test ✅ · T8 API ✅ · T9 UI index ✅ · T10 halaman evaluasi ✅ ·
 T11 uji URL live · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
 
 ## Etika & lisensi

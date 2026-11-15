@@ -1,6 +1,6 @@
 # Hasil Evaluasi PhishGuard
 
-- Tanggal evaluasi: 2026-11-15T06:29:56+00:00
+- Tanggal evaluasi: 2026-11-15T07:35:56+00:00
 - Model A terbaik: `rf` (50 fitur) ·
   Model B terbaik: `xgb` (19 fitur)
 - Angka training/CV bersumber dari `docs/metrics.json` (`trained_at` = 2026-11-15T05:27:42+00:00)

@@ -3,6 +3,7 @@
 import reflex as rx
 
 from app.app_state import State
+from app.style import LINK_COLOR
 
 
 def render_feature(item: rx.Var[dict]) -> rx.Component:
@@ -40,6 +41,7 @@ def index() -> rx.Component:
                 "Deteksi phishing dari string URL — tanpa membuka atau memindai situs.",
                 size="3",
             ),
+            rx.link("Lihat evaluasi model →", href="/evaluasi", color=LINK_COLOR, size="2"),
             rx.form.root(
                 rx.hstack(
                     rx.input(
