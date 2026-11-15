@@ -167,11 +167,11 @@ def stat_card(value, label: str) -> rx.Component:
     )
 
 
-GRID = {"stroke": "#2B2736", "stroke_dasharray": "3 3"}
+GRID = {"stroke": "#444444", "stroke_dasharray": "6 6"}
 TOOLTIP_STYLE = {
-    "background": t.CARD_2,
-    "border": f"1px solid {t.LINE}",
-    "border_radius": "8px",
+    "background": t.BLACK,
+    "border": f"3px solid {t.WHITE}",
+    "border_radius": "0",
     "color": t.TEXT,
 }
 
@@ -224,13 +224,15 @@ def fold_line_chart() -> rx.Component:
 
 
 def _conf_cell(value, caption: str, good: bool) -> rx.Component:
+    """Benar (TP/TN) = putih; salah (FN/FP) = merah."""
+    fg = t.BLACK if good else t.WHITE
     return rx.box(
-        rx.text(value, style={"font_size": "1.6rem", "font_weight": "700", "line_height": "1.1"}),
-        muted(caption, size="1"),
+        rx.text(value, style={"font_size": "1.6rem", "font_weight": "700", "line_height": "1.1", "color": fg}),
+        muted(caption, size="1", style={"color": fg}),
         style={
-            "background": "rgba(139,92,246,0.16)" if good else "rgba(239,68,68,0.14)",
-            "border": f"1px solid {t.PURPLE if good else t.RED}",
-            "border_radius": "12px",
+            "background": t.WHITE if good else t.P5_RED,
+            "border": f"3px solid {t.WHITE if good else t.P5_RED}",
+            "border_radius": "0",
             "padding": "14px",
         },
     )
@@ -244,7 +246,7 @@ def confusion_card() -> rx.Component:
     return card(
         card_title("layers", "Confusion matrix (Model B)"),
         muted(
-            "Hasil pada data uji, ambang 50%. Ungu = prediksi benar, merah = salah.",
+            "Hasil pada data uji, ambang 50%. Putih = prediksi benar, merah = salah.",
             size="1",
             style={"margin_top": "6px", "margin_bottom": "14px"},
         ),
@@ -302,13 +304,13 @@ def split_card() -> rx.Component:
         ),
         rx.hstack(
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "9999px", "background": t.PURPLE}),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.PURPLE}),
                 muted("Latih", size="1"),
                 align="center",
                 spacing="1",
             ),
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "9999px", "background": t.ORANGE}),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.ORANGE}),
                 muted("Uji", size="1"),
                 align="center",
                 spacing="1",
@@ -358,14 +360,14 @@ def cv_table() -> rx.Component:
                                     "font_size": "0.75rem",
                                     "font_weight": "700",
                                     "padding": "2px 10px",
-                                    "border_radius": "6px",
+                                    "border_radius": "0",
                                 },
                             ),
                             "",
                         ),
                         style={"text_align": "center"},
                     ),
-                    style={"background": rx.cond(row[3] != "", "rgba(139,92,246,0.14)", "transparent")},
+                    style={"background": rx.cond(row[3] != "", "rgba(230,0,18,0.18)", "transparent")},
                 ),
             )
         ),
@@ -400,7 +402,7 @@ REPORT_STYLE = {
     "& code": {
         "background": t.CARD_2,
         "padding": "0.05rem 0.35rem",
-        "border_radius": "4px",
+        "border_radius": "0",
         "word_break": "break-all",
         "font_size": "0.85em",
     },
@@ -485,7 +487,22 @@ def evaluasi() -> rx.Component:
     return page_shell(
         rx.vstack(
             rx.vstack(
-                rx.heading("Evaluasi model", as_="h1", size="7", style={"font_weight": "700"}),
+                rx.heading(
+                    "Evaluasi model",
+                    as_="h1",
+                    style={
+                        "font_family": t.DISPLAY_FONT,
+                        "text_transform": "uppercase",
+                        "font_weight": "400",
+                        "font_size": "clamp(2rem, 5vw, 3.2rem)",
+                        "line_height": "0.95",
+                        "color": t.WHITE,
+                        "text_shadow": f"6px 6px 0 {t.BLACK}",
+                        "transform": "rotate(-3deg)",
+                        "transform_origin": "left",
+                        "margin": "8px 0 20px",
+                    },
+                ),
                 muted("Seberapa akurat PhishGuard membedakan URL phishing dari URL legit.", size="3"),
                 spacing="1",
                 align="start",

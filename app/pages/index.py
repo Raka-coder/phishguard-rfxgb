@@ -24,9 +24,9 @@ def example_chip(label: str, url: str) -> rx.Component:
         style={
             "cursor": "pointer",
             "color": t.TEXT,
-            "background": t.CARD_2,
-            "box_shadow": f"inset 0 0 0 1px {t.LINE}",
-            "&:hover": {"box_shadow": f"inset 0 0 0 1px {t.PURPLE}", "color": t.PURPLE_LIGHT},
+            "background": t.BLACK,
+            "box_shadow": f"inset 0 0 0 2px {t.WHITE}",
+            "&:hover": {"box_shadow": f"inset 0 0 0 2px {t.P5_RED}", "color": t.PURPLE_LIGHT},
         },
     )
 
@@ -52,8 +52,10 @@ def search_card() -> rx.Component:
                         "flex": "1",
                         "width": "100%",
                         "background": t.INPUT_BG,
-                        "box_shadow": f"inset 0 0 0 1px {t.LINE}",
-                        "color": t.TEXT,
+                        "box_shadow": f"6px 6px 0 {t.P5_RED}",
+                        "border": f"4px solid {t.BLACK}",
+                        "color": t.BLACK,
+                        "font_weight": "700",
                     },
                 ),
                 rx.button(
@@ -64,12 +66,16 @@ def search_card() -> rx.Component:
                     disabled=State.loading,
                     style={
                         "cursor": "pointer",
-                        "background": t.GRADIENT,
-                        "color": t.WHITE,
-                        "font_weight": "600",
-                        "padding": "0 28px",
-                        "box_shadow": "0 0 0 1px rgba(183,156,255,0.55), 0 6px 24px rgba(124,58,237,0.45)",
-                        "&:hover": {"filter": "brightness(1.12)"},
+                        "background": t.BLACK,
+                        "color": t.P5_RED,
+                        "font_family": t.DISPLAY_FONT,
+                        "text_transform": "uppercase",
+                        "font_size": "1.35rem",
+                        "padding": "0 32px",
+                        "border": f"4px solid {t.WHITE}",
+                        "transform": "skewX(-8deg)",
+                        "box_shadow": f"6px 6px 0 {t.P5_RED}",
+                        "&:hover": {"background": t.P5_RED, "color": t.WHITE},
                     },
                 ),
                 direction={"initial": "column", "sm": "row"},
@@ -99,7 +105,7 @@ def empty_state() -> rx.Component:
         rx.vstack(
             rx.box(
                 rx.icon("shield-check", size=34, style={"color": t.PURPLE_LIGHT}),
-                style={"background": t.CARD_2, "padding": "16px", "border_radius": "9999px", "display": "flex"},
+                style={"background": t.CARD_2, "padding": "16px", "border_radius": "0", "display": "flex"},
             ),
             rx.text("Belum ada URL yang diperiksa", style={"font_size": "1.05rem", "font_weight": "600"}),
             muted("Tempel URL di atas atau pakai salah satu contoh. Hasilnya muncul di sini."),
@@ -114,30 +120,31 @@ def verdict_card() -> rx.Component:
     tone = rx.cond(State.is_phishing, t.RED, t.GREEN)
     return card(
         rx.hstack(
-            rx.box(style={"width": "4px", "height": "16px", "background": tone, "border_radius": "2px"}),
+            rx.box(style={"width": "4px", "height": "16px", "background": tone, "border_radius": "0"}),
             muted("Verdict"),
             align="center",
             spacing="2",
         ),
         rx.hstack(
             rx.box(
-                rx.cond(
-                    State.is_phishing,
-                    rx.icon("shield-alert", size=34),
-                    rx.icon("shield-check", size=34),
+                rx.image(
+                    src=rx.cond(State.is_phishing, "/img/phishing.png", "/img/legit.png"),
+                    alt=rx.cond(State.is_phishing, "Phishing", "Legitimate"),
+                    style={"width": "100%", "height": "100%", "object_fit": "contain", "object_position": "bottom"},
                 ),
                 style={
-                    "color": tone,
-                    "background": rx.cond(State.is_phishing, "rgba(239,68,68,0.15)", "rgba(34,197,94,0.15)"),
-                    "padding": "16px",
-                    "border_radius": "16px",
-                    "display": "flex",
+                    "width": "112px",
+                    "height": "120px",
+                    "flex_shrink": "0",
+                    "background": rx.cond(State.is_phishing, t.P5_RED, t.WHITE),
+                    "clip_path": "polygon(12% 0, 100% 0, 88% 100%, 0 100%)",
+                    "overflow": "hidden",
                 },
             ),
             rx.vstack(
                 rx.text(
                     State.label_name,
-                    style={"font_size": "1.9rem", "font_weight": "700", "line_height": "1.1", "color": tone},
+                    style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": tone, "overflow_wrap": "anywhere"},
                 ),
                 muted(
                     rx.cond(
@@ -148,6 +155,7 @@ def verdict_card() -> rx.Component:
                 ),
                 spacing="1",
                 align="start",
+                style={"min_width": "0", "flex": "1"},
             ),
             align="center",
             spacing="4",
@@ -155,11 +163,11 @@ def verdict_card() -> rx.Component:
         ),
         rx.box(
             muted("URL yang diperiksa", size="1"),
-            rx.text(State.submitted_url, size="2", style={**MONO, "word_break": "break-all", "margin_top": "2px"}),
+            rx.text(State.submitted_url, size="2", style={**MONO, "color": t.WHITE, "word_break": "break-all", "margin_top": "2px"}),
             style={
-                "background": t.INPUT_BG,
-                "border": f"1px solid {t.LINE}",
-                "border_radius": "10px",
+                "background": t.CARD_2,
+                "border": f"2px solid {t.WHITE}",
+                "border_radius": "0",
                 "padding": "10px 12px",
                 "margin_top": "18px",
             },
@@ -200,13 +208,13 @@ def probability_card() -> rx.Component:
         ),
         rx.hstack(
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "9999px", "background": t.RED}),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.RED}),
                 muted("Phishing", size="1"),
                 align="center",
                 spacing="1",
             ),
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "9999px", "background": t.GREEN}),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.GREEN}),
                 muted("Legit", size="1"),
                 align="center",
                 spacing="1",
@@ -238,7 +246,7 @@ def impact_badge(icon: str, text: str, bg: str) -> rx.Component:
         rx.text(text, size="1", weight="bold"),
         align="center",
         spacing="1",
-        style={"background": bg, "color": t.WHITE, "padding": "4px 10px", "border_radius": "6px", "white_space": "nowrap"},
+        style={"background": bg, "color": t.WHITE, "padding": "4px 10px", "border_radius": "0", "white_space": "nowrap"},
     )
 
 
@@ -266,7 +274,7 @@ def render_feature(item: rx.Var[dict]) -> rx.Component:
         style={
             "background": t.CARD_2,
             "border": f"1px solid {t.LINE}",
-            "border_radius": "12px",
+            "border_radius": "0",
             "padding": "14px 16px",
         },
     )
@@ -305,8 +313,27 @@ def results_view() -> rx.Component:
     )
 
 
+def hero() -> rx.Component:
+    return rx.heading(
+        "Take your link back",
+        as_="h1",
+        style={
+            "font_family": t.DISPLAY_FONT,
+            "text_transform": "uppercase",
+            "font_size": "clamp(2.6rem, 8vw, 5.6rem)",
+            "line_height": "0.95",
+            "color": t.WHITE,
+            "text_shadow": f"6px 6px 0 {t.BLACK}",
+            "transform": "rotate(-3deg)",
+            "transform_origin": "left",
+            "margin": "8px 0 28px",
+        },
+    )
+
+
 def index() -> rx.Component:
     return page_shell(
+        hero(),
         rx.vstack(
             search_card(),
             rx.cond(State.error != "", error_callout()),
