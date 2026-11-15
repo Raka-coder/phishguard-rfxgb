@@ -124,7 +124,7 @@ rxconfig.py, uv.lock, pyproject.toml
 ## Peta jalan
 
 T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ✅ ·
-T5 `train.py` ✅ · T6 `evaluate.py` ✅ · T7 `predict.py` + test · T8 API · T9 UI index · T10 halaman evaluasi ·
+T5 `train.py` ✅ · T6 `evaluate.py` ✅ · T7 `predict.py` + test ✅ · T8 API · T9 UI index · T10 halaman evaluasi ·
 T11 uji URL live · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
 
 ## Etika & lisensi

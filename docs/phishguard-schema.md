@@ -151,6 +151,17 @@ Kontrak:
 - `top_features`: maksimal 5 item, terurut dampak terbesar.
 - Input kosong, tanpa scheme, tanpa host → 400 (bukan 500).
 
+Implementasi `src/predict.py` (T7), dipakai ulang oleh API (T8):
+- `predict_url(url)` melakukan: validasi (`ValueError` bila kosong/non-string/scheme bukan http(s)/host kosong) →
+  `extract_features` → DataFrame urut `URL_FEATURES` → `predict_proba` → `P(phishing) = proba[class==0]`.
+- Artefak dimuat lazy sekali (`_load()`), **sebelum** `perf_counter` dimulai, sehingga `inference_ms`
+  panggilan pertama tidak menghitung waktu load.
+- `top_features`: peringkat `importance × |nilai − rata-rata kelas yang diprediksi|` dari `docs/stats.json`.
+  Arah `impact` ditentukan jarak ke rata-rata kelas: lebih dekat ke phishing → "meningkatkan risiko",
+  lebih dekat ke legit → "menurunkan risiko", selisih ≤ 5% → "netral".
+- `stats.json` tidak ada → `top_features=[]` (prediksi tetap jalan). `model.pkl` tidak ada → `RuntimeError`
+  dengan instruksi menjalankan `uv run python src/train.py`.
+
 ### GET /health
 ```json
 { "status": "ok", "model_loaded": true }
