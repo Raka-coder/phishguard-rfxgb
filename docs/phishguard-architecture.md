@@ -52,10 +52,13 @@ Alasan pemisahan lapisan: model (L2) tidak pernah tahu tentang web (L3/L4); API 
 - **Fallback** (R4): bila `fit` OOM, downcast float64→float32 atau iterasi `pd.read_csv(..., chunksize=100_000)` untuk engineering fitur bertahap.
 
 ### 2.3 Prinsip anti-leakage arsitektural
-Satu sumber kolom → dua **proyeksi fitur** berbeda:
-- **Proyeksi A (full)**: semua 54 fitur numerik — dipakai Model A (evaluasi/laporan).
-- **Proyeksi B (URL-only)**: hanya fitur leksikal yang bisa dihitung dari string URL — dipakai Model B (produksi).
-Proyeksi didaftarkan eksplisit di `src/config.py` (daftar nama kolom) dan `src/feature_utils.py`, sehingga mustahil Model B tanpa sengaja menerima fitur konten.
+Satu sumber (kolom `URL` + dataset) → dua **proyeksi fitur** berbeda:
+- **Proyeksi A (full)**: 50 kolom numerik dataset — dipakai Model A (evaluasi/laporan).
+- **Proyeksi B (URL-only, 19 fitur)**: dihitung **ulang dari string URL** oleh
+  `feature_utils.extract_features()` saat training, bukan disalin dari kolom dataset — dipakai Model B
+  (produksi). Ini yang menjamin definisi fitur saat training identik dengan saat inference.
+Proyeksi didaftarkan eksplisit di `src/config.py` (`FULL_FEATURES`, `URL_FEATURES`), sehingga mustahil
+Model B tanpa sengaja menerima fitur konten.
 
 ---
 

@@ -100,9 +100,10 @@ rxconfig.py, uv.lock, pyproject.toml
 - **Arah label terbalik.** Di PhiUSIIL `1 = legitimate` (134.850 baris) dan `0 = phishing` (100.945 baris).
   Jadi probabilitas phishing adalah `predict_proba[:, 0]`, bukan `[:, 1]`. Distribusi angka di atas
   adalah gerbang verifikasi setiap anggota.
-- **Dua model.** Model A (`src/model_full.pkl`, 54 fitur termasuk fitur konten halaman) hanya untuk
-  evaluasi/laporan; Model B (`src/model.pkl`, fitur leksikal URL saja) yang dipakai API & UI. Fitur konten
-  yang dimasukkan ke Model B adalah kebocoran data, bukan peningkatan.
+- **Dua model.** Model A (`src/model_full.pkl`, 50 kolom numerik termasuk fitur konten halaman) hanya untuk
+  evaluasi/laporan; Model B (`src/model.pkl`, 19 fitur leksikal URL) yang dipakai API & UI. Fitur konten
+  yang dimasukkan ke Model B adalah kebocoran data, bukan peningkatan. Model B **dihitung ulang** dari
+  string URL via `extract_features()` saat training, jadi definisinya selalu sama saat inference.
 - **Nama kolom jangan diketik dari ingatan.** Ejaan dataset: `NoOfDegitsInURL`, `DegitRatioInURL`,
   `SpacialCharRatioInURL`, `NoOfEqualsInURL`, `NoOfQMarkInURL`, `NoOfAmpersandInURL`,
   `NoOfOtherSpecialCharsInURL`. Jalankan `DESCRIBE` dulu.
@@ -119,7 +120,7 @@ rxconfig.py, uv.lock, pyproject.toml
 
 ## Peta jalan
 
-T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ·
+T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ✅ ·
 T5 `train.py` · T6 `evaluate.py` · T7 `predict.py` + test · T8 API · T9 UI index · T10 halaman evaluasi ·
 T11 uji URL live · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
 

@@ -1,7 +1,7 @@
 # PhishGuard — agent notes
 
 ## State of the repo
-T1–T3 are done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, `src/config.py` (paths, seed 42, label constants, expected counts), `scripts/inspect_data.py` (verifies 235795 rows / 1:134850 / 0:100945 and exits non-zero on mismatch), `scripts/convert_parquet.py` (CSV → `data/PhiUSIIL.parquet`, 15.1 MB, skipped if present). **No model, no API, no pages yet** — next work is T4 (`feature_utils.py`) onwards. The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
+T1–T4 are done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, `src/config.py` (paths, seed 42, label constants, expected counts, `FULL_FEATURES` = 50 numeric columns, `URL_FEATURES` = 19), `src/feature_utils.py` (`extract_features(url) -> dict` + `to_frame(urls)`, 42 µs/URL), `scripts/inspect_data.py`, `scripts/convert_parquet.py`, `tests/test_features.py` (6 tests). **No model, no API, no pages yet** — next work is T5 (`train.py`). The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
 
 Write user-facing copy, docs and commit messages in Indonesian to match. Remote: `https://github.com/Raka-coder/phishguard-rfxgb`.
 
@@ -53,7 +53,9 @@ Copy that into new scripts, or run them as modules (`uv run python -m scripts.fo
 Notes: dataset spelling is `Degit`/`Spacial` (keep it); `equals`, `qmark`, `ampersand` carry the `InURL` suffix. Run `DESCRIBE` before writing `FULL_FEATURES`/`URL_FEATURES`; never type column names from memory. Features that need a page fetch (`LineOfCode`, `NoOfImage`, `HasTitle`, `Bank/Pay/Crypto`, …) are **Model A only** — they must not reach Model B.
 
 ## Hard constraints
-- **Two models by design:** Model A (`src/model_full.pkl`, 54 features, ~0.97+ F1, report only) vs Model B (`src/model.pkl`, lexical URL-only subset, served by API/UI). Putting content features in Model B is leakage, not an improvement.
+- **Two models by design:** Model A (`src/model_full.pkl`, 50 numeric dataset columns, report only) vs Model B (`src/model.pkl`, 19 lexical features, served by API/UI). Putting content features in Model B is leakage, not an improvement.
+- **Model B is recomputed, not copied.** Train it from `feature_utils.to_frame(df.URL)`, never from the dataset's feature columns: `NoOfLettersInURL`, `NoOfOtherSpecialCharsInURL` and `CharContinuationRate` in the CSV cannot be reproduced from a URL string (checked on 2,000 rows), so copying them creates train/serve skew. Changing a definition in `extract_features()` invalidates the model — retrain.
+- **Inline/delegated layout quirk:** `sys.path` bootstrap is only in `scripts/`; `tests/` relies on `[tool.pytest.ini_options] pythonpath = ["."]` in `pyproject.toml`, and `src/*.py` modules import each other as `from src.x import y`, so run from the repo root.
 - **No network at inference.** `extract_features()` is a pure string->dict function; no fetching, resolving, or probing the analysed URL (ethics clause). Live test URLs come from PhishTank/Tranco lists as text only.
 - **Ports:** FastAPI must be **8001**; 8000 belongs to the Reflex backend.
 - **Reflex 0.11:** pages are **not** auto-discovered from `app/pages/` — register each one with `app.add_page(...)` in `app/app.py`. 100% Python: no hand-written JS/HTML/JSX, never edit `.web/`. In the render tree use `rx.cond`/`rx.foreach`/Var operators, never Python `if`/`for` over a Var; mutate state only inside event handlers, derived values via `@rx.var`. Note `reflex init` rewrites `.gitignore` and can overwrite `AGENTS.md` — always pass `--no-agents`.

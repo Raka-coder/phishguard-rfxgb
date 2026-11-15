@@ -31,42 +31,57 @@ Implikasi: **P(phishing) = predict_proba[:, 0]**, bukan `[:, 1]`. Wajib ada asse
 
 ### 1.2 Grup kolom
 
-| Grup | Contoh kolom | Perlakuan |
-|---|---|---|
-| **Identitas (DROP)** | `URL`, `Domain`, `Filename` | Dihapus dari semua proyeksi fitur; `URL` hanya dipakai sebagai kunci saat menelusuri contoh FP/FN |
-| **Leksikal-URL (Model B)** | `URLLength`, `NoOfDots`, `NoOfHyphens`, `NoOfAmpersand`, `NoOfOtherSpecialChars`, `IsHTTPS`, `IsDomainIP`, `CharContinuationRate`, `TLDLegitimateProb`, `URLCharProb`, `NoOfSubDomain`, `HasObfuscation`, `ObfuscationRatio`, `NoOfSymbols`, `Robots`, `SpacialCharRatioInURL`, `DegitRatioInURL`, `NoOfDegitsInURL`, `NoOfEqual`, `NoOfQMark`, `NoOfAt`, `DomainLength`, `DomainRegisterLength`, `IsUnresolvableHost` *(nama final tetap divalidasi via DESCRIBE)* | Fitur yang **bisa dihitung dari string URL** → basis `extract_features()` dan proyeksi Model B |
-| **Konten halaman (Model A saja)** | `LineOfCode`, `NoOfImage`, `NoOfCSS`, `NoOfJS`, `NoOfSelfRef`, `NoOfEmptyRef`, `NoOfExternalRef`, `HasTitle`, `DomainTitleMatchScope`, `HasDescription`, `HasSocialNet`, `HasSubmitButton`, `HasHiddenFields`, `HasPasswordField`, `HasCopyrightInfo`, `IsResponsive`, `NoOfPopup`, `NoOfiFrame`, `NoOfSelfRedirect`, `NoOfURLRedirect`, `HasFavicon`, `Bank`, `Pay`, `Crypto`, `Cryptocurrency` *(nama final tetap divalidasi)* | Hanya ada di dataset historis → **dilarang masuk Model B** (R2 leakage) |
+> Diverifikasi ulang terhadap CSV di `data/` pada 2026-11-15. Daftar kolom yang benar ada di
+> `src/config.py` (`FULL_FEATURES`, `URL_FEATURES`); tabel di bawah hanya ringkasan grup.
 
-> Catatan ejaan dataset: `Degit` (bukan `Digit`) — salin persis dari output DESCRIBE.
+| Grup | Kolom | Perlakuan |
+|---|---|---|
+| **Identitas (DROP)** | `URL`, `Domain`, `TLD`, `Title`, `label` | Bukan fitur. `URL` hanya dipakai sebagai kunci saat menelusuri contoh FP/FN dan sebagai input `extract_features()`. `TLD`/`Title` berupa teks sehingga tidak masuk proyeksi numerik. |
+| **Numerik (Model A, 50 kolom)** | `URLLength`, `DomainLength`, `IsDomainIP`, `URLSimilarityIndex`, `CharContinuationRate`, `TLDLegitimateProb`, `URLCharProb`, `TLDLength`, `NoOfSubDomain`, `HasObfuscation`, `NoOfObfuscatedChar`, `ObfuscationRatio`, `NoOfLettersInURL`, `LetterRatioInURL`, `NoOfDegitsInURL`, `DegitRatioInURL`, `NoOfEqualsInURL`, `NoOfQMarkInURL`, `NoOfAmpersandInURL`, `NoOfOtherSpecialCharsInURL`, `SpacialCharRatioInURL`, `IsHTTPS`, `LineOfCode`, `LargestLineLength`, `HasTitle`, `DomainTitleMatchScore`, `URLTitleMatchScore`, `HasFavicon`, `Robots`, `IsResponsive`, `NoOfURLRedirect`, `NoOfSelfRedirect`, `HasDescription`, `NoOfPopup`, `NoOfiFrame`, `HasExternalFormSubmit`, `HasSocialNet`, `HasSubmitButton`, `HasHiddenFields`, `HasPasswordField`, `Bank`, `Pay`, `Crypto`, `HasCopyrightInfo`, `NoOfImage`, `NoOfCSS`, `NoOfJS`, `NoOfSelfRef`, `NoOfEmptyRef`, `NoOfExternalRef` | Semua fitur dataset, dipakai Model A (evaluasi/laporan). |
+| **Leksikal-URL (Model B, 19 kolom)** | lihat `src/config.py:URL_FEATURES` | **Dihitung ulang dari string URL** oleh `extract_features()`, tidak disalin dari kolom dataset (lihat §2). |
+| **Konten halaman (dilarang di Model B)** | `LineOfCode`, `NoOfImage`, `HasTitle`, `DomainTitleMatchScore`, `Bank`, `Pay`, `Crypto`, `HasFavicon`, `Robots`, `IsResponsive`, redirect/popup/iFrame/hidden-field, … | Butuh fetch halaman → mustahil saat inference (R2). |
+
+> Catatan ejaan dataset: `Degit` (bukan `Digit`), `Spacial` (bukan `Special`), sufiks `InURL` pada
+> `NoOfEqualsInURL`, `NoOfQMarkInURL`, `NoOfAmpersandInURL`, `NoOfOtherSpecialCharsInURL`.
+> Kolom yang **tidak ada** di dataset (sempat tercantum di draf dokumen ini): `NoOfDots`, `NoOfHyphens`,
+> `NoOfAt`, `NoOfSymbols`, `DomainRegisterLength`, `IsUnresolvableHost`.
 
 ---
 
 ## 2. Skema Fitur Turunan — `extract_features(url) -> dict`
 
-Fungsi murni di `src/feature_utils.py`. Input string URL apa pun dari pengguna; output dict fitur leksikal yang **nama & urutannya sama persis** dengan kolom proyeksi Model B di dataset (kolom yang tidak bisa dihitung live → tidak boleh ada di Model B).
+Fungsi murni di `src/feature_utils.py`. Input string URL apa pun dari pengguna; output dict 19 fitur
+leksikal dengan nama & urutan sama persis dengan `src/config.py:URL_FEATURES`, tanpa `None`/NaN.
 
-| Fitur (contoh) | Definisi hitung dari string |
+**Keputusan penting:** Model B dilatih dari hasil `extract_features()` atas kolom `URL`, bukan dari kolom
+fitur dataset. Alasannya, beberapa kolom dataset (mis. `NoOfLettersInURL`, `CharContinuationRate`,
+`NoOfOtherSpecialCharsInURL`) tidak dapat direproduksi dari string URL — diuji pada 2.000 baris, tidak ada
+definisi kandidat yang cocok. Menyalin kolom dataset untuk training lalu menghitung versi berbeda saat
+inference akan menimbulkan train/serve skew.
+
+| Fitur | Definisi hitung dari string |
 |---|---|
 | `URLLength` | `len(url)` |
-| `NoOfDots` | `url.count('.')` |
-| `NoOfHyphens` | `url.count('-')` |
-| `NoOfAt` | `url.count('@')` |
-| `NoOfEqual` / `NoOfQMark` | `count('=')` / `count('?')` |
-| `NoOfOtherSpecialChars` | hitung karakter khusus lain (`,;:%~+&*[]()!$#'")` |
-| `DegitRatioInURL` | proporsi karakter digit `0-9` |
-| `SpacialCharRatioInURL` | proporsi karakter khusus (ejaan dataset: "Spacial") |
-| `IsHTTPS` | `1` bila scheme `https`, else `0` |
+| `DomainLength` | `len(host)` (tanpa scheme, path, query, port) |
+| `TLDLength` | `len(label terakhir host)` |
+| `NoOfSubDomain` | `jumlah label host - 2` (minimum 0; `www` tetap dihitung sebagai subdomain, sama seperti dataset) |
 | `IsDomainIP` | `1` bila host adalah IPv4/IPv6 |
-| `DomainLength` | panjang host |
-| `NoOfSubDomain` | jumlah label host dikurangi 1 (di luar www/TLD) |
-| `HasObfuscation` / `ObfuscationRatio` | ada/proporsi teknik obfuscation: `%XX`, `@`, IP host, homoglyph di luar ASCII, double-slash tak wajar |
-| `NoOfSymbols` | jumlah simbol non-alnum |
+| `IsHTTPS` | `1` bila string diawali `https` |
+| `NoOfLettersInURL` / `LetterRatioInURL` | jumlah `str.isalpha()` / dibagi panjang URL |
+| `NoOfDegitsInURL` / `DegitRatioInURL` | jumlah digit / dibagi panjang URL |
+| `NoOfEqualsInURL`, `NoOfQMarkInURL`, `NoOfAmpersandInURL` | `url.count('=')`, `count('?')`, `count('&')` |
+| `NoOfOtherSpecialCharsInURL` / `SpacialCharRatioInURL` | jumlah karakter di himpunan `,;:%~+&*[]()!$#'"?=/@_-` / dibagi panjang URL |
+| `CharContinuationRate` | run alfanumerik terpanjang / panjang URL |
+| `HasObfuscation` | `1` bila ada `%`, `@`, `\`, karakter non-ASCII, atau host berupa IP |
+| `NoOfObfuscatedChar` / `ObfuscationRatio` | jumlah karakter obfuscation / dibagi panjang URL |
 
 Aturan kontrak:
-1. Deterministik & murni (tanpa jaringan, tanpa I/O).
-2. Semua nilai numerik (float/int) — tanpa `None` (default 0.0).
-3. Urutan kolom output = urutan kolom training Model B (`src/config.py: URL_FEATURES`).
-4. Ada unit test di `tests/test_predict.py` untuk URL tipikal (phishing & legitim).
+1. Deterministik & murni (tanpa jaringan, tanpa I/O); 42 µs/URL → ~10 detik untuk 235.795 URL.
+2. Semua nilai numerik float — tanpa `None`/NaN, input kosong/rusak menghasilkan 0.
+3. Urutan kolom output = urutan `URL_FEATURES`; `feature_utils.to_frame(urls)` menjamin itu.
+4. Unit test di `tests/test_features.py` (nama/urutan kolom, IP host, input kosong, `to_frame`).
+5. Definisi yang tidak bisa dipulihkan dari string (`URLSimilarityIndex`, `URLCharProb`,
+   `TLDLegitimateProb`) hanya ada di Model A.
 
 ---
 
