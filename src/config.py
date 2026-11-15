@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(ROOT / ".env", override=False)  # .env opsional; env shell tetap prioritas
 DATA_DIR = ROOT / "data"
 DATA_CSV = DATA_DIR / "PhiUSIIL.csv"
 DATA_PARQUET = DATA_DIR / "PhiUSIIL.parquet"

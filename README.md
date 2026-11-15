@@ -118,6 +118,25 @@ tests/                test_*.py + fixtures/urls.txt
 docs/screenshots/     screenshot UI
 ```
 
+## Konfigurasi lingkungan (.env)
+
+Proyek mendukung file `.env` (opsional, sudah di-gitignore) untuk menyimpan variabel
+lingkungan, misalnya override URL API atau kunci API tools/layanan lain:
+
+```env
+PHISHGUARD_API_URL=http://localhost:8001/check
+# EXAMPLE_API_KEY=...
+```
+
+Salin dari template:
+
+```powershell
+copy .env.example .env
+```
+
+Jika `.env` tidak ada, semua default berlaku. Variabel shell (`$env:...`) tetap prioritas
+di atas `.env`. Lihat `.env.example`.
+
 ## Konvensi penting
 
 - **Arah label terbalik:** `1 = legitimate`, `0 = phishing`. `P(phishing) = predict_proba[:, 0]`.

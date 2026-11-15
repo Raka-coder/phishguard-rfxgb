@@ -1,6 +1,10 @@
 """Entry point aplikasi Reflex PhishGuard."""
 
 import reflex as rx
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 
 from app.pages.evaluasi import EvalState, evaluasi
 from app.pages.index import index

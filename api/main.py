@@ -1,6 +1,11 @@
 """API PhishGuard: POST /check dan GET /health (FastAPI, port 8001)."""
 
+from pathlib import Path
+from dotenv import load_dotenv
+
 from fastapi import FastAPI, Request
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env", override=False)
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
