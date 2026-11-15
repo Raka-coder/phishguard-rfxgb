@@ -1,0 +1,29 @@
+*.db
+.states
+*.py[cod]
+.web
+assets/external/
+# data — JANGAN commit (ukuran + lisensi CC BY-NC-SA)
+data/
+*.zip
+*.parquet
+*.duckdb
+
+# environment & build
+.venv/
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.web/
+state.json
+
+# rahasia & lokal
+.env
+.env.local
+kaggle.json
+
+# tooling lokal (knowledge graph agent)
+.megamemory/
