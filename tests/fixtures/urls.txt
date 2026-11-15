@@ -1,0 +1,21 @@
+# tests/fixtures/urls.txt
+# Format: satu URL per baris. Baris kosong dan baris yang diawali '#' diabaikan.
+#
+# === PHISHING (PLACEHOLDER — ganti dengan URL PhishTank terverifikasi + screenshot) ===
+# PHISHTANK-PLACEHOLDER: ganti URL di bawah dengan URL PhishTank verified + screenshot di docs/screenshots/
+http://192.168.0.1/paypal-login-verify.xyz
+# PHISHTANK-PLACEHOLDER: ganti URL di bawah dengan URL PhishTank verified + screenshot di docs/screenshots/
+http://secure-paypal-login.example.com/verify
+# PHISHTANK-PLACEHOLDER: ganti URL di bawah dengan URL PhishTank verified + screenshot di docs/screenshots/
+http://bank-bri-login.example.net/auth
+
+# === LEGITIMATE (Tranco / domain resmi) ===
+https://www.wikipedia.org
+https://www.python.org
+https://github.com
+https://www.bri.co.id
+https://www.kompas.com
+
+# === EDGE CASES ===
+https://exämple.com/path?q=ü
+https://example.com/abcdefghijklmnopqrstuvwxyz0123456789
