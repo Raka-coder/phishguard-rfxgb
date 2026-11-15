@@ -1,7 +1,7 @@
 # PhishGuard — agent notes
 
 ## State of the repo
-Scaffolding (T1) is done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, empty `src/`/`api/`/`scripts/`/`tests/` trees, dataset in `data/`. **No model, no API, no pages yet** — next work is T2 (`scripts/inspect_data.py`) onwards. The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
+T1–T3 are done: `uv` project, locked deps, `.gitignore`, README, `rxconfig.py`, `app/app.py`, `src/config.py` (paths, seed 42, label constants, expected counts), `scripts/inspect_data.py` (verifies 235795 rows / 1:134850 / 0:100945 and exits non-zero on mismatch), `scripts/convert_parquet.py` (CSV → `data/PhiUSIIL.parquet`, 15.1 MB, skipped if present). **No model, no API, no pages yet** — next work is T4 (`feature_utils.py`) onwards. The four Indonesian docs in `docs/` are the spec; `docs/phishguard-implementation.md` §5 lists the approved work order (**T1–T12, in order, each with a verifiable DoD**).
 
 Write user-facing copy, docs and commit messages in Indonesian to match. Remote: `https://github.com/Raka-coder/phishguard-rfxgb`.
 
@@ -29,10 +29,18 @@ $env:CI=1; uv run reflex run                 # UI gate: frontend :3000, backend 
 uv run reflex compile                        # faster UI check when you only need a build
 uv sync                                      # after pulling changes to uv.lock
 ```
-Installed versions are newer than the spec assumes — **Reflex 0.11, scikit-learn 1.9, xgboost 3.2, pandas 3.x**. Check `uv run reflex --version` before copying Reflex patterns from the docs or the web, and test pandas 3 behaviour rather than assuming pandas 2.
+Installed versions are newer than the spec assumes — **Reflex 0.11, DuckDB 2.0, scikit-learn 1.9, xgboost 3.2, pandas 3.x**. Confirmed gotchas: DuckDB `Relation` has `.fetchall()`/`.df()` but **no `fetchone()`**; `reflex init` requires `--no-agents` or it overwrites this file; pages are not auto-discovered (see Hard constraints). Test pandas 3 behaviour rather than assuming pandas 2.
+
+`src/` is not an installed package, so `uv run python scripts/foo.py` does **not** put the repo root on `sys.path`. Every file under `scripts/` starts with:
+
+```python
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+```
+
+Copy that into new scripts, or run them as modules (`uv run python -m scripts.foo`).
 
 ## Dataset facts (verified on the CSV in `data/`)
-- `data/PhiUSIIL.csv` (54 MB) is the Kaggle ZIP's single CSV, renamed to the name every doc/script expects. The Kaggle extract name varies per member; rename on arrival, don't branch the code on the filename.
+- `data/PhiUSIIL.csv` (54 MB) is the user's own Kaggle extract ([ndarvind/phiusiil-phishing-url-dataset](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset)), renamed to the name every doc/script expects. Rename on arrival; never branch code on the Kaggle filename. `data/PhiUSIIL.parquet` (15.1 MB) is generated locally. Both are gitignored and absent from the remote — **never commit or upload them** (54 MB + CC BY-NC-SA licence).
 - 235,795 rows × 55 columns (54 features + `label`). Label distribution confirmed: `1 = 134850`, `0 = 100945`.
 - **`1 = legitimate`, `0 = phishing`** (inverted vs intuition). So `P(phishing) = predict_proba[:, 0]`. Keep the assertion in `tests/test_predict.py` — everything breaks silently without it.
 - Never open the CSV in an editor and never `pd.read_csv` it for exploration: DuckDB queries the file in place. `data/` stays out of git (size + CC BY-NC-SA licence).

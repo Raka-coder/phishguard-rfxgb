@@ -11,7 +11,21 @@ Dataset: Prasad & Chandra (2023), doi:[10.1016/j.cose.2023.103545](https://doi.o
 
 ## Status
 
-Setup selesai (T1). Belum ada model terlatih, API, atau halaman UI — lihat peta jalan di bawah.
+Setup selesai (T1–T3): environment, scaffolding Reflex, inspeksi data, dan konversi Parquet sudah jalan di
+dataset yang ada di `data/`. Belum ada model terlatih, API, atau halaman UI — lihat peta jalan di bawah.
+
+## Dataset
+
+Dataset sudah tersedia lokal di `data/` (tidak pernah di-commit — lihat `.gitignore`):
+
+| Berkas | Asal | Ukuran |
+|---|---|---|
+| `data/PhiUSIIL.csv` | [Kaggle: ndarvind/phiusiil-phishing-url-dataset](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset) — satu CSV di dalam ZIP | 54 MB, 235.795 × 55 |
+| `data/PhiUSIIL.parquet` | dibuat lokal oleh `scripts/convert_parquet.py` (ZSTD) | 15 MB |
+
+Nama berkas di ZIP Kaggle bisa berbeda (mis. `PhiUSIIL_Phishing_URL_Dataset.csv`); seluruh kode memakai
+`data/PhiUSIIL.csv`, dan path itu didefinisikan sekali di `src/config.py` (`DATA_CSV`, `DATA_PARQUET`).
+Jangan ganti nama atau memindahkan CSV tanpa memperbarui konstanta tersebut.
 
 ## Prasyarat
 
@@ -20,7 +34,7 @@ Setup selesai (T1). Belum ada model terlatih, API, atau halaman UI — lihat pet
 | Windows 10/11 + Python 3.11 | `uv --version` (uv mengunduh Python 3.11 otomatis sesuai `.python-version`) |
 | [uv](https://docs.astral.sh/uv/) | `powershell -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
 | Git | `git --version` |
-| Dataset CSV dari Kaggle | `data/PhiUSIIL.csv` (tidak di-commit) |
+| Dataset CSV dari Kaggle | `data/PhiUSIIL.csv` (lihat bagian Dataset) |
 
 Bila frontend Reflex gagal start dengan error DLL/bun di Windows, pasang
 **Microsoft Visual C++ 2015 Redistributable x64**.
@@ -32,16 +46,13 @@ git clone https://github.com/Raka-coder/phishguard-rfxgb.git
 cd phishguard-rfxgb
 uv sync                                  # environment identik dari uv.lock
 
-# dataset: unduh ZIP Kaggle, ekstrak, lalu rename hasilnya menjadi data/PhiUSIIL.csv
-# (nama file dari ZIP bisa berbeda, mis. PhiUSIIL_Phishing_URL_Dataset.csv)
+# dataset: unduh ZIP dari Kaggle, ekstrak, rename hasilnya menjadi data/PhiUSIIL.csv
+# (dataset ini TIDAK di-commit: data/ dan *.parquet ada di .gitignore)
 
 uv run reflex init --name app --template blank --no-agents   # sekali saja, bila .web/ belum ada
 uv run python scripts/inspect_data.py    # verifikasi: 235795 baris; label 1: 134850, 0: 100945
-uv run python scripts/convert_parquet.py # sekali per laptop -> data/PhiUSIIL.parquet
+uv run python scripts/convert_parquet.py # sekali per laptop -> data/PhiUSIIL.parquet (15 MB)
 ```
-
-`scripts/inspect_data.py` dan `scripts/convert_parquet.py` menyusul pada tugas T2–T3; sampai saat itu
-angka verifikasi di atas bisa dicek lewat DuckDB langsung (lihat `docs/phishguard-implementation.md` §5).
 
 ## Menjalankan aplikasi
 
@@ -73,9 +84,9 @@ Semua perintah Python **wajib** lewat `uv run` — jangan pakai `python`/`pip` g
 
 ```
 docs/                 4 dokumen spesifikasi + hasil evaluasi (metrics.json, hasil_evaluasi.md)
-data/                 PhiUSIIL.csv, PhiUSIIL.parquet — gitignored
+data/                 PhiUSIIL.csv (54 MB, Kaggle), PhiUSIIL.parquet (15 MB) — keduanya gitignored
 scripts/              inspect_data.py, convert_parquet.py, test_live_urls.py
-src/                  config.py, feature_utils.py, train.py, evaluate.py, predict.py
+src/                  config.py (path, seed, label), feature_utils.py, train.py, evaluate.py, predict.py
 api/main.py           FastAPI :8001 — POST /check, GET /health
 app/app.py            entrypoint Reflex (rx.App + add_page)
 app/app_state.py      rx.State + event handler
@@ -102,11 +113,13 @@ rxconfig.py, uv.lock, pyproject.toml
   `app.add_page(index, route="/")` di `app/app.py`. Kontrol alur di dalam render tree memakai `rx.cond` /
   `rx.foreach`, bukan `if`/`for` Python atas Var; mutasi state hanya di event handler.
 - **Jangan buka `data/PhiUSIIL.csv` di editor** dan jangan `pd.read_csv` untuk eksplorasi — query via
-  DuckDB agar hemat RAM.
+  DuckDB agar hemat RAM. DuckDB 2.0 menghapus `Relation.fetchone()`; pakai `.fetchall()` atau `.df()`.
+- **Skrip di `scripts/` menambahkan root repo ke `sys.path`** (`sys.path.insert(0, ...parents[1])`) karena
+  `src/` bukan paket terinstal. Skrip baru wajib menyalin dua baris itu agar `from src.config import …` jalan.
 
 ## Peta jalan
 
-T1 scaffolding ✅ · T2 `inspect_data.py` · T3 `convert_parquet.py` · T4 `config.py` + `feature_utils.py` ·
+T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ·
 T5 `train.py` · T6 `evaluate.py` · T7 `predict.py` + test · T8 API · T9 UI index · T10 halaman evaluasi ·
 T11 uji URL live · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
 
