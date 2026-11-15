@@ -11,9 +11,9 @@ Dataset: Prasad & Chandra (2023), doi:[10.1016/j.cose.2023.103545](https://doi.o
 
 ## Status
 
-Setup dan pemodelan selesai (T1–T11): environment, inspeksi data, training dua model, evaluasi test set, inference
-`predict_url`, API FastAPI (`:8001`), halaman Reflex (cek URL + evaluasi), dan uji URL live (`scripts/test_live_urls.py`)
-sudah jalan. Poles final (T12) belum ada — lihat peta jalan di bawah.
+Setup dan pemodelan selesai (T1–T12): environment, inspeksi data, training dua model, evaluasi test set, inference
+`predict_url`, API FastAPI (`:8001`), halaman Reflex (cek URL + evaluasi), uji URL live, dan poles final sudah
+jalan. Proyek siap didemokan; tag `v1.0` menunggu finalisasi URL PhishTank verified (lihat T11/T12).
 
 ## Dataset
 
@@ -27,6 +27,14 @@ Dataset sudah tersedia lokal di `data/` (tidak pernah di-commit — lihat `.giti
 Nama berkas di ZIP Kaggle bisa berbeda (mis. `PhiUSIIL_Phishing_URL_Dataset.csv`); seluruh kode memakai
 `data/PhiUSIIL.csv`, dan path itu didefinisikan sekali di `src/config.py` (`DATA_CSV`, `DATA_PARQUET`).
 Jangan ganti nama atau memindahkan CSV tanpa memperbarui konstanta tersebut.
+
+## Dataset & Atribusi
+
+- **Sumber:** Prasad & Chandra (2023), *PhiUSIIL: A diverse security profile empowered phishing URL detection framework*, Computers & Security, doi:[10.1016/j.cose.2023.103545](https://doi.org/10.1016/j.cose.2023.103545).
+- **Distribusi:** Kaggle — [ndarvind/phiusiil-phishing-url-dataset](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset) (satu CSV di dalam ZIP).
+- **Lisensi:** CC BY-NC-SA 4.0 — **non-komersial**, dengan atribusi, turunan dibagikan dengan lisensi yang sama.
+- **Penggunaan di proyek ini:** akademik (mata kuliah Keamanan Informasi, KP70065004). Dataset (`data/PhiUSIIL.csv`, `data/PhiUSIIL.parquet`) **tidak di-commit** (`.gitignore`) karena ukuran dan lisensi.
+- **Konvensi label:** `1 = legitimate` (134.850 baris), `0 = phishing` (100.945 baris) — terbalik dari intuisi; probabilitas phishing = `predict_proba[:, 0]`.
 
 ## Prasyarat
 
@@ -63,6 +71,16 @@ uv run python src/evaluate.py                # metrik + contoh FP/FN -> docs/has
 uv run uvicorn api.main:app --port 8001      # terminal 1 — API
 uv run reflex run                            # terminal 2 — web di http://localhost:3000
 ```
+
+## Screenshot
+
+![Halaman cek URL — hasil LEGITIMATE](docs/screenshots/index-legit.png)
+
+![Halaman cek URL — hasil PHISHING](docs/screenshots/index-phishing.png)
+
+![Kartu hasil dengan top-5 fitur](docs/screenshots/index-features.png)
+
+![Halaman evaluasi](docs/screenshots/evaluasi.png)
 
 ## Perintah harian
 
@@ -123,11 +141,21 @@ rxconfig.py, uv.lock, pyproject.toml
 - **Skrip di `scripts/` menambahkan root repo ke `sys.path`** (`sys.path.insert(0, ...parents[1])`) karena
   `src/` bukan paket terinstal. Skrip baru wajib menyalin dua baris itu agar `from src.config import …` jalan.
 
+## Checklist Kriteria Sukses (PRD §9)
+
+- [x] 1. `uv run python scripts/inspect_data.py` mencetak 235.795 baris; label `1: 134.850`, `0: 100.945`.
+- [x] 2. `uv run python src/train.py` menghasilkan `src/model.pkl` (Model B) & `src/model_full.pkl` (Model A) + `docs/metrics.json`.
+- [x] 3. `uv run python src/evaluate.py` menulis precision/recall/F1 + confusion matrix + kandidat FP/FN ke `docs/hasil_evaluasi.md`.
+- [x] 4. `CI=1 uv run reflex run` jalan bersih; halaman utama & halaman evaluasi tampil.
+- [x] 5. `POST http://localhost:8001/check` mengembalikan 200 untuk URL valid dan 400 untuk input tidak valid.
+- [x] 6. Minimal 3 contoh FP dan 3 FN nyata terdokumentasi (28 FP + 122 FN di `docs/hasil_evaluasi.md`).
+- [ ] 7. Video demo 5–10 menit direkam (4 babak: phishing betulan → situs legitim → URL PhishTank baru → kasus tricky/FP). *(tugas owner)*
+
 ## Peta jalan
 
 T1 scaffolding ✅ · T2 `inspect_data.py` ✅ · T3 `convert_parquet.py` ✅ · T4 `config.py` + `feature_utils.py` ✅ ·
 T5 `train.py` ✅ · T6 `evaluate.py` ✅ · T7 `predict.py` + test ✅ · T8 API ✅ · T9 UI index ✅ · T10 halaman evaluasi ✅ ·
-T11 uji URL live ✅ · T12 poles + tag `v1.0`. Detail DoD: `docs/phishguard-implementation.md` §5.
+T11 uji URL live ✅ · T12 poles & dokumentasi ✅ (tag `v1.0` ditunda sampai URL PhishTank verified). Detail DoD: `docs/phishguard-implementation.md` §5.
 
 ## Etika & lisensi
 

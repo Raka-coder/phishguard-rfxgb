@@ -81,3 +81,33 @@ Total **122** baris (122 URL unik); 10 contoh teratas ditampilkan.
   (`https://…`, tanpa query, sedikit simbol), mirip URL legit di dataset.
 - Kesimpulan draf: performa test tinggi karena distribusi dataset; risiko utama di data live adalah
   ketergantungan pada HTTPS dan keterbatasan fitur leksikal murni (lihat T11 untuk uji URL live).
+
+## Uji Live (T11) — catatan
+
+Status: korpus di `tests/fixtures/urls.txt` masih berisi **placeholder** (ditandai
+`# PHISHTANK-PLACEHOLDER:`). Tabel hasil final menunggu owner mengganti URL
+dengan URL PhishTank terverifikasi + screenshot di `docs/screenshots/`, lalu
+menjalankan `uv run python scripts/test_live_urls.py --markdown` dan menempelkan
+hasilnya di sini.
+
+Temuan dari run placeholder (bukan data PhishTank final):
+
+- `https://github.com` diskor **PHISHING 0.9987** (false positive). Hipotesis:
+  URL pendek (18 karakter) + sedikit simbol membuat fitur leksikal mirip
+  URL phishing pendek yang ada di dataset; dominasi `IsHTTPS` tidak cukup
+  menurunkan skor karena fitur panjang/jumlah simbol mendominasi arah.
+- URL placeholder phishing (tanpa HTTPS / IP host) semuanya diskor 1.0000
+  (sesuai pola `IsHTTPS=0` dan `IsDomainIP=1`).
+- URL legitim panjang (`wikipedia.org`, `python.org`, `bri.co.id`, `kompas.com`)
+  diskor < 0.003 — konsisten dengan pola training.
+
+Kandidat perbaikan (bahan analisis FP/FN untuk laporan):
+
+- Tambah fitur reputasi TLD/host (mis. usia domain, ranking Tranco) — di luar
+  ruang lingkup Model B saat ini (no network at inference), jadi perlu
+  pre-computed allowlist.
+- Kalibrasi threshold atau penalti panjang URL pendek.
+- Perluas korpus uji live dengan URL PhishTank verified + screenshot.
+
+Lihat `docs/screenshots/` (index-legit.png, index-phishing.png, index-features.png,
+evaluasi.png) untuk tampilan UI.
