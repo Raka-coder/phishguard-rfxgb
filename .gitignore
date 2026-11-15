@@ -31,3 +31,5 @@ src/tld_probs.json
 
 # tooling lokal (knowledge graph agent)
 .megamemory/
+skills/
+*skills-lock.json

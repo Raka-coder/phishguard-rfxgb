@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.163.0",
     "httpx>=0.28.1",
     "joblib>=1.6.0",
+    "kagglehub>=1.0.3",
     "pandas>=3.1.1",
     "pyarrow>=26.0.1",
     "reflex>=0.11.0",

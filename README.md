@@ -36,18 +36,31 @@ CV (5-fold, train): Model A RF 1.0000 · Model B XGB 0.9962. Laporan lengkap: [`
 git clone https://github.com/Raka-coder/phishguard-rfxgb.git
 cd phishguard-rfxgb
 uv sync
+uv run python scripts/download_data.py      # unduh dataset (~150 MB, butuh internet; idempotent)
+uv run python scripts/convert_parquet.py   # sekali per laptop -> data/PhiUSIIL.parquet (15 MB)
+uv run python scripts/inspect_data.py      # verifikasi: 235795 baris; label 1: 134850, 0: 100945
 
-# dataset: unduh ZIP dari Kaggle, ekstrak, rename menjadi data/PhiUSIIL.csv
-uv run python scripts/inspect_data.py        # verifikasi: 235.795 baris
-uv run python scripts/convert_parquet.py     # sekali per laptop
-uv run python src/train.py                   # latih model
-uv run python src/evaluate.py                # metrik + FP/FN
+uv run python src/train.py                  # latih model
+uv run python src/evaluate.py               # metrik + FP/FN
 
-uv run uvicorn api.main:app --port 8001      # terminal 1 — API
-uv run reflex run                            # terminal 2 — web di http://localhost:3000
+uv run uvicorn api.main:app --port 8001     # terminal 1 - API
+uv run reflex run                           # terminal 2 - web di http://localhost:3000
 ```
 
+> **Verifikasi wajib:** angka output `inspect_data.py` harus persis `235795 baris; label 1: 134850, 0: 100945`
+> di semua laptop. Kalau berbeda, STOP dan laporkan.
+
 > Semua perintah Python **wajib** lewat `uv run`. Jangan pakai `python`/`pip` global.
+
+### Troubleshooting
+
+- **`model.pkl` / `tld_probs.json` / isi `data/` tidak terlihat di IDE atau GitHub — itu NORMAL.**
+  File-file ini di-gitignore dan dibuat ulang lokal (`uv run python src/train.py`).
+  Cek dengan `git status --ignored`.
+- **Download gagal (offline/timeout):** fallback manual —
+  1. Buka https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset
+  2. Download ZIP, ekstrak, rename hasilnya menjadi `data/PhiUSIIL.csv`
+  3. Jalankan ulang `uv run python scripts/download_data.py` (akan terdeteksi "sudah ada" dan skip).
 
 ## Prasyarat
 
