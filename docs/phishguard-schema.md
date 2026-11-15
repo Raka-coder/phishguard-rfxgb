@@ -162,6 +162,12 @@ Implementasi `src/predict.py` (T7), dipakai ulang oleh API (T8):
 - `stats.json` tidak ada → `top_features=[]` (prediksi tetap jalan). `model.pkl` tidak ada → `RuntimeError`
   dengan instruksi menjalankan `uv run python src/train.py`.
 
+Implementasi `api/main.py` (T8), port **8001**:
+- `POST /check` endpoint sync (`def`) memanggil `predict_url`; `ValueError` → 400 `{"detail": ...}` dengan pesan asli.
+- `RequestValidationError` (body tanpa `url`, atau `url` bukan string) juga dipetakan ke **400**, bukan 422.
+- `GET /health` mencoba `_load()` dan mengembalikan `model_loaded: true|false` tanpa melempar error.
+- CORS hanya untuk `http://localhost:3000` dan `http://127.0.0.1:3000`, `allow_credentials=False`.
+
 ### GET /health
 ```json
 { "status": "ok", "model_loaded": true }
