@@ -10,13 +10,17 @@ from scripts.diagnose_realworld import (
     aggregate_contributions,
     auc_block,
     build_diagnosis,
+    flipped_scheme,
     homepage_traces,
     is_plain_homepage,
+    legit_sensitivity_experiment,
     phishing_stripped_experiment,
     render_markdown,
     score_distribution,
     single_feature_baselines,
     threshold_sweep,
+    toggled_trailing_slash,
+    uppercase_host,
     with_www,
     without_path_query,
     write_outputs,
@@ -81,6 +85,27 @@ def test_plain_homepage_detection():
     assert not is_plain_homepage("https://www.bbc.com/#top")
 
 
+def test_sensitivity_url_transforms():
+    assert toggled_trailing_slash("https://example.com") == "https://example.com/"
+    assert toggled_trailing_slash("https://example.com/a/") == "https://example.com/a"
+    assert toggled_trailing_slash("https://example.com/?q=1") == "https://example.com/?q=1"
+    assert uppercase_host("https://www.bbc.com/news") == "https://WWW.BBC.COM/news"
+    assert flipped_scheme("https://example.com") == "http://example.com"
+    assert flipped_scheme("http://example.com/a") == "https://example.com/a"
+
+
+def test_legit_sensitivity_experiment_counts_changes():
+    result = legit_sensitivity_experiment(["https://www.bbc.com", "https://example.com/"])
+    assert result["available"] is True
+    assert result["variants"]["original"]["urls_changed"] == 0
+    assert result["variants"]["trailing_slash"]["urls_changed"] == 1
+    assert result["variants"]["www_prefix"]["urls_changed"] == 1
+    assert result["variants"]["uppercase_host"]["urls_changed"] == 2
+    assert result["variants"]["scheme_flip"]["urls_changed"] == 2
+    assert "delta_vs_original" not in result["variants"]["original"]
+    assert result["variants"]["scheme_flip"]["delta_vs_original"]["increased"] >= 0
+
+
 def test_phishing_stripped_and_single_feature_baselines():
     phishing = [
         "https://secure-login.example.com/verify/account?token=abc",
@@ -103,6 +128,9 @@ def test_phishing_stripped_and_single_feature_baselines():
     assert baselines["baselines"]["URLLength"]["roc_auc"] is not None
     assert baselines["baselines"]["DomainLength"]["roc_auc"] is not None
     assert baselines["model_b"]["roc_auc"] == 1.0
+    assert baselines["baselines"]["URLLength"]["direction"] == "higher_is_phishing"
+    assert baselines["baselines"]["DomainLength"]["direction"] == "higher_is_phishing"
+    assert baselines["model_b"]["direction"].startswith("higher_is_phishing")
 
     assert phishing_stripped_experiment([], legit)["available"] is False
     assert single_feature_baselines(phishing, [], [0.5, 0.5])["available"] is False
@@ -155,13 +183,22 @@ def test_build_diagnosis_outputs_aggregates_without_urls(tmp_path):
     assert set(payload["legit_variants"]["variants"]) == {"original", "no_path_query", "www_prefix"}
     assert payload["phishing_stripped"]["available"] is True
     assert payload["single_feature_baselines"]["available"] is True
+    assert payload["legit_sensitivity"]["available"] is True
+    assert set(payload["legit_sensitivity"]["variants"]) == {
+        "original",
+        "trailing_slash",
+        "www_prefix",
+        "uppercase_host",
+        "scheme_flip",
+    }
+    assert payload["feature_parity"]["available"] is False
     assert len(payload["legit_homepage_traces"]) == 1
     assert payload["legit_homepage_traces"][0]["id"] == "legit_homepage_1"
     assert set(payload["single_feature_baselines"]["baselines"]) == {"URLLength", "DomainLength"}
 
     dumped = json.dumps(payload, ensure_ascii=False)
-    assert "http" not in dumped  # tidak ada URL di keluaran publik
-    assert "http" not in render_markdown(payload)
+    assert "://" not in dumped  # tidak ada URL di keluaran publik
+    assert "://" not in render_markdown(payload)
 
     json_path = tmp_path / "realworld.json"
     json_path.write_text('{"variants": {}}\n', encoding="utf-8")
@@ -174,6 +211,7 @@ def test_build_diagnosis_outputs_aggregates_without_urls(tmp_path):
     assert "Hapus path/query" in doc
     assert "Baseline satu fitur" in doc
     assert "Jejak kontribusi homepage" in doc
+    assert "Sensitivitas skor URL legitimate" in doc
 
 
 def test_real_model_scores_variants_end_to_end():

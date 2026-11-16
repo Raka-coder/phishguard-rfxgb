@@ -1411,6 +1411,167 @@
         }
       }
     },
+    "legit_sensitivity": {
+      "available": true,
+      "n": 55,
+      "direction": "skor P(phishing), makin besar makin condong phishing",
+      "variants": {
+        "original": {
+          "urls_changed": 0,
+          "n": 55,
+          "mean": 0.8758,
+          "median": 1.0,
+          "min": 0.0033,
+          "max": 1.0,
+          "predicted_phishing_pct": 89.09,
+          "quantiles": {
+            "0.00": 0.0033,
+            "0.01": 0.1275,
+            "0.05": 0.2767,
+            "0.10": 0.4989,
+            "0.25": 0.8729,
+            "0.50": 1.0,
+            "0.75": 1.0,
+            "0.90": 1.0,
+            "0.95": 1.0,
+            "0.99": 1.0,
+            "1.00": 1.0
+          }
+        },
+        "trailing_slash": {
+          "urls_changed": 31,
+          "n": 55,
+          "mean": 0.8757,
+          "median": 1.0,
+          "min": 0.0033,
+          "max": 1.0,
+          "predicted_phishing_pct": 89.09,
+          "quantiles": {
+            "0.00": 0.0033,
+            "0.01": 0.1275,
+            "0.05": 0.2767,
+            "0.10": 0.4989,
+            "0.25": 0.8729,
+            "0.50": 1.0,
+            "0.75": 1.0,
+            "0.90": 1.0,
+            "0.95": 1.0,
+            "0.99": 1.0,
+            "1.00": 1.0
+          },
+          "delta_vs_original": {
+            "mean_before": 0.8758,
+            "mean_after": 0.8757,
+            "mean": -0.0001,
+            "median_before": 1.0,
+            "median_after": 1.0,
+            "median": 0.0,
+            "increased": 7,
+            "decreased": 1,
+            "unchanged": 47
+          }
+        },
+        "www_prefix": {
+          "urls_changed": 23,
+          "n": 55,
+          "mean": 0.8741,
+          "median": 0.9999,
+          "min": 0.0033,
+          "max": 1.0,
+          "predicted_phishing_pct": 89.09,
+          "quantiles": {
+            "0.00": 0.0033,
+            "0.01": 0.1275,
+            "0.05": 0.2767,
+            "0.10": 0.4989,
+            "0.25": 0.8988,
+            "0.50": 0.9999,
+            "0.75": 1.0,
+            "0.90": 1.0,
+            "0.95": 1.0,
+            "0.99": 1.0,
+            "1.00": 1.0
+          },
+          "delta_vs_original": {
+            "mean_before": 0.8758,
+            "mean_after": 0.8741,
+            "mean": -0.0018,
+            "median_before": 1.0,
+            "median_after": 0.9999,
+            "median": 0.0,
+            "increased": 6,
+            "decreased": 4,
+            "unchanged": 45
+          }
+        },
+        "uppercase_host": {
+          "urls_changed": 55,
+          "n": 55,
+          "mean": 0.8758,
+          "median": 1.0,
+          "min": 0.0033,
+          "max": 1.0,
+          "predicted_phishing_pct": 89.09,
+          "quantiles": {
+            "0.00": 0.0033,
+            "0.01": 0.1275,
+            "0.05": 0.2767,
+            "0.10": 0.4989,
+            "0.25": 0.8729,
+            "0.50": 1.0,
+            "0.75": 1.0,
+            "0.90": 1.0,
+            "0.95": 1.0,
+            "0.99": 1.0,
+            "1.00": 1.0
+          },
+          "delta_vs_original": {
+            "mean_before": 0.8758,
+            "mean_after": 0.8758,
+            "mean": 0.0,
+            "median_before": 1.0,
+            "median_after": 1.0,
+            "median": 0.0,
+            "increased": 0,
+            "decreased": 0,
+            "unchanged": 55
+          }
+        },
+        "scheme_flip": {
+          "urls_changed": 55,
+          "n": 55,
+          "mean": 1.0,
+          "median": 1.0,
+          "min": 0.9999,
+          "max": 1.0,
+          "predicted_phishing_pct": 100.0,
+          "quantiles": {
+            "0.00": 0.9999,
+            "0.01": 0.9999,
+            "0.05": 0.9999,
+            "0.10": 0.9999,
+            "0.25": 1.0,
+            "0.50": 1.0,
+            "0.75": 1.0,
+            "0.90": 1.0,
+            "0.95": 1.0,
+            "0.99": 1.0,
+            "1.00": 1.0
+          },
+          "delta_vs_original": {
+            "mean_before": 0.8758,
+            "mean_after": 1.0,
+            "mean": 0.1241,
+            "median_before": 1.0,
+            "median_after": 1.0,
+            "median": 0.0,
+            "increased": 32,
+            "decreased": 0,
+            "unchanged": 23
+          }
+        }
+      }
+    },
     "phishing_stripped": {
       "available": true,
       "n_phishing": 300,
@@ -1449,17 +1610,21 @@
     "single_feature_baselines": {
       "available": true,
       "note": "Skor baseline = nilai fitur mentah; nilai lebih besar dianggap lebih condong phishing.",
+      "direction": "higher_is_phishing",
       "baselines": {
         "URLLength": {
+          "direction": "higher_is_phishing",
           "roc_auc": 0.9367,
           "pr_auc": 0.9927
         },
         "DomainLength": {
+          "direction": "higher_is_phishing",
           "roc_auc": 0.9522,
           "pr_auc": 0.9947
         }
       },
       "model_b": {
+        "direction": "higher_is_phishing (P(phishing))",
         "roc_auc": 0.6687,
         "pr_auc": 0.9223
       }
@@ -1523,7 +1688,522 @@
         ]
       }
     ],
-    "generated_at": "2026-11-16T23:44:18+00:00",
+    "feature_parity": {
+      "sample": {
+        "source": "split train dari config.make_split (test tidak disentuh)",
+        "seed": 42,
+        "requested_size": 5000,
+        "size": 5000,
+        "n_legit": 2870,
+        "n_phishing": 2130
+      },
+      "tld_probability": {
+        "source": "src/tld_probs.json",
+        "formula": "(jumlah legit per TLD + 1) / (jumlah total per TLD + 2)",
+        "default_formula": "(jumlah legit train + 1) / (jumlah baris train + 2)",
+        "n_tlds": 12597,
+        "default": 0.571894,
+        "sample_default_fallback_pct": 0.2
+      },
+      "by_label": {
+        "legit": {
+          "n": 2870,
+          "features": {
+            "URLLength": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 1.0,
+              "max_abs_diff": 1.0,
+              "correlation": 1.0
+            },
+            "DomainLength": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "TLDLength": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "NoOfSubDomain": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "IsDomainIP": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "IsHTTPS": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "NoOfLettersInURL": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 9.0,
+              "max_abs_diff": 9.0,
+              "correlation": 1.0
+            },
+            "LetterRatioInURL": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 0.324224,
+              "max_abs_diff": 0.517882,
+              "correlation": 0.9366
+            },
+            "NoOfDegitsInURL": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "DegitRatioInURL": {
+              "exact_match_pct": 97.0,
+              "mean_abs_diff": 9.1e-05,
+              "max_abs_diff": 0.009333,
+              "correlation": 1.0
+            },
+            "NoOfEqualsInURL": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "NoOfQMarkInURL": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "NoOfAmpersandInURL": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "NoOfOtherSpecialCharsInURL": {
+              "exact_match_pct": 1.22,
+              "mean_abs_diff": 1.841115,
+              "max_abs_diff": 2.0,
+              "correlation": 0.6037
+            },
+            "SpacialCharRatioInURL": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 0.068477,
+              "max_abs_diff": 0.114471,
+              "correlation": 0.5011
+            },
+            "HasObfuscation": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "NoOfObfuscatedChar": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "ObfuscationRatio": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": null
+            },
+            "TLDLegitimateProb": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 0.535927,
+              "max_abs_diff": 0.995553,
+              "correlation": -0.4042
+            }
+          }
+        },
+        "phishing": {
+          "n": 2130,
+          "features": {
+            "URLLength": {
+              "exact_match_pct": 47.84,
+              "mean_abs_diff": 0.521596,
+              "max_abs_diff": 1.0,
+              "correlation": 1.0
+            },
+            "DomainLength": {
+              "exact_match_pct": 99.95,
+              "mean_abs_diff": 0.001878,
+              "max_abs_diff": 4.0,
+              "correlation": 1.0
+            },
+            "TLDLength": {
+              "exact_match_pct": 99.95,
+              "mean_abs_diff": 0.001878,
+              "max_abs_diff": 4.0,
+              "correlation": 0.9917
+            },
+            "NoOfSubDomain": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "IsDomainIP": {
+              "exact_match_pct": 99.95,
+              "mean_abs_diff": 0.000469,
+              "max_abs_diff": 1.0,
+              "correlation": 0.9352
+            },
+            "IsHTTPS": {
+              "exact_match_pct": 99.72,
+              "mean_abs_diff": 0.002817,
+              "max_abs_diff": 1.0,
+              "correlation": 0.9944
+            },
+            "NoOfLettersInURL": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 6.164319,
+              "max_abs_diff": 16.0,
+              "correlation": 0.9994
+            },
+            "LetterRatioInURL": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 0.181291,
+              "max_abs_diff": 0.523667,
+              "correlation": 0.6771
+            },
+            "NoOfDegitsInURL": {
+              "exact_match_pct": 98.64,
+              "mean_abs_diff": 0.013615,
+              "max_abs_diff": 1.0,
+              "correlation": 1.0
+            },
+            "DegitRatioInURL": {
+              "exact_match_pct": 56.1,
+              "mean_abs_diff": 0.000886,
+              "max_abs_diff": 0.04,
+              "correlation": 0.9996
+            },
+            "NoOfEqualsInURL": {
+              "exact_match_pct": 99.77,
+              "mean_abs_diff": 0.002347,
+              "max_abs_diff": 1.0,
+              "correlation": 0.9979
+            },
+            "NoOfQMarkInURL": {
+              "exact_match_pct": 100.0,
+              "mean_abs_diff": 0.0,
+              "max_abs_diff": 0.0,
+              "correlation": 1.0
+            },
+            "NoOfAmpersandInURL": {
+              "exact_match_pct": 96.9,
+              "mean_abs_diff": 0.094366,
+              "max_abs_diff": 26.0,
+              "correlation": 0.3173
+            },
+            "NoOfOtherSpecialCharsInURL": {
+              "exact_match_pct": 10.66,
+              "mean_abs_diff": 1.585446,
+              "max_abs_diff": 31.0,
+              "correlation": 0.936
+            },
+            "SpacialCharRatioInURL": {
+              "exact_match_pct": 0.8,
+              "mean_abs_diff": 0.044544,
+              "max_abs_diff": 0.173294,
+              "correlation": 0.4753
+            },
+            "HasObfuscation": {
+              "exact_match_pct": 97.79,
+              "mean_abs_diff": 0.022066,
+              "max_abs_diff": 1.0,
+              "correlation": 0.4603
+            },
+            "NoOfObfuscatedChar": {
+              "exact_match_pct": 97.56,
+              "mean_abs_diff": 0.058685,
+              "max_abs_diff": 15.0,
+              "correlation": 0.8117
+            },
+            "ObfuscationRatio": {
+              "exact_match_pct": 97.46,
+              "mean_abs_diff": 0.000488,
+              "max_abs_diff": 0.104826,
+              "correlation": 0.6479
+            },
+            "TLDLegitimateProb": {
+              "exact_match_pct": 0.0,
+              "mean_abs_diff": 0.333794,
+              "max_abs_diff": 0.984275,
+              "correlation": 0.6352
+            }
+          }
+        }
+      },
+      "worst_features": {
+        "legit": [
+          {
+            "feature": "NoOfLettersInURL",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 9.0,
+            "max_abs_diff": 9.0,
+            "correlation": 1.0
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "exact_match_pct": 1.22,
+            "mean_abs_diff": 1.841115,
+            "max_abs_diff": 2.0,
+            "correlation": 0.6037
+          },
+          {
+            "feature": "URLLength",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 1.0,
+            "max_abs_diff": 1.0,
+            "correlation": 1.0
+          },
+          {
+            "feature": "TLDLegitimateProb",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 0.535927,
+            "max_abs_diff": 0.995553,
+            "correlation": -0.4042
+          },
+          {
+            "feature": "LetterRatioInURL",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 0.324224,
+            "max_abs_diff": 0.517882,
+            "correlation": 0.9366
+          }
+        ],
+        "phishing": [
+          {
+            "feature": "NoOfLettersInURL",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 6.164319,
+            "max_abs_diff": 16.0,
+            "correlation": 0.9994
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "exact_match_pct": 10.66,
+            "mean_abs_diff": 1.585446,
+            "max_abs_diff": 31.0,
+            "correlation": 0.936
+          },
+          {
+            "feature": "URLLength",
+            "exact_match_pct": 47.84,
+            "mean_abs_diff": 0.521596,
+            "max_abs_diff": 1.0,
+            "correlation": 1.0
+          },
+          {
+            "feature": "TLDLegitimateProb",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 0.333794,
+            "max_abs_diff": 0.984275,
+            "correlation": 0.6352
+          },
+          {
+            "feature": "LetterRatioInURL",
+            "exact_match_pct": 0.0,
+            "mean_abs_diff": 0.181291,
+            "max_abs_diff": 0.523667,
+            "correlation": 0.6771
+          }
+        ]
+      },
+      "computed_feature_names": [
+        "URLLength",
+        "DomainLength",
+        "TLDLength",
+        "NoOfSubDomain",
+        "IsDomainIP",
+        "IsHTTPS",
+        "NoOfLettersInURL",
+        "LetterRatioInURL",
+        "NoOfDegitsInURL",
+        "DegitRatioInURL",
+        "NoOfEqualsInURL",
+        "NoOfQMarkInURL",
+        "NoOfAmpersandInURL",
+        "NoOfOtherSpecialCharsInURL",
+        "SpacialCharRatioInURL",
+        "HasObfuscation",
+        "NoOfObfuscatedChar",
+        "ObfuscationRatio",
+        "TLDLegitimateProb"
+      ],
+      "available": true,
+      "homepage_comparison": {
+        "available": true,
+        "n_urls": 3,
+        "n_train_legit_homepages": 107880,
+        "rows": [
+          {
+            "feature": "URLLength",
+            "t18_median": 28.0,
+            "t18_min": 21.0,
+            "t18_max": 30.0,
+            "train_median": 27.0,
+            "delta": 1.0
+          },
+          {
+            "feature": "DomainLength",
+            "t18_median": 19.0,
+            "t18_min": 12.0,
+            "t18_max": 21.0,
+            "train_median": 19.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "TLDLength",
+            "t18_median": 2.0,
+            "t18_min": 2.0,
+            "t18_max": 2.0,
+            "train_median": 3.0,
+            "delta": -1.0
+          },
+          {
+            "feature": "NoOfSubDomain",
+            "t18_median": 2.0,
+            "t18_min": 2.0,
+            "t18_max": 2.0,
+            "train_median": 1.0,
+            "delta": 1.0
+          },
+          {
+            "feature": "IsDomainIP",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "IsHTTPS",
+            "t18_median": 1.0,
+            "t18_min": 1.0,
+            "t18_max": 1.0,
+            "train_median": 1.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfLettersInURL",
+            "t18_median": 21.0,
+            "t18_min": 14.0,
+            "t18_max": 23.0,
+            "train_median": 22.0,
+            "delta": -1.0
+          },
+          {
+            "feature": "LetterRatioInURL",
+            "t18_median": 0.75,
+            "t18_min": 0.666667,
+            "t18_max": 0.766667,
+            "train_median": 0.806452,
+            "delta": -0.056452
+          },
+          {
+            "feature": "NoOfDegitsInURL",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "DegitRatioInURL",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfEqualsInURL",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfQMarkInURL",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfAmpersandInURL",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "t18_median": 4.0,
+            "t18_min": 4.0,
+            "t18_max": 4.0,
+            "train_median": 3.0,
+            "delta": 1.0
+          },
+          {
+            "feature": "SpacialCharRatioInURL",
+            "t18_median": 0.142857,
+            "t18_min": 0.133333,
+            "t18_max": 0.190476,
+            "train_median": 0.115385,
+            "delta": 0.027472
+          },
+          {
+            "feature": "HasObfuscation",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "NoOfObfuscatedChar",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "ObfuscationRatio",
+            "t18_median": 0.0,
+            "t18_min": 0.0,
+            "t18_max": 0.0,
+            "train_median": 0.0,
+            "delta": 0.0
+          },
+          {
+            "feature": "TLDLegitimateProb",
+            "t18_median": 0.75,
+            "t18_min": 0.75,
+            "t18_max": 0.75,
+            "train_median": 0.775718,
+            "delta": -0.025718
+          }
+        ]
+      }
+    },
+    "generated_at": "2026-11-16T23:55:04+00:00",
     "parameters": {
       "threshold": 0.5,
       "thresholds": [

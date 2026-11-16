@@ -1,6 +1,6 @@
 # Diagnosis set uji dunia nyata (T18c/T18d)
 
-Dihasilkan otomatis oleh `scripts/diagnose_realworld.py` pada 2026-11-16T23:44:18+00:00. Semua angka diambil dari skrip; dokumen ini tidak memuat URL.
+Dihasilkan otomatis oleh `scripts/diagnose_realworld.py` pada 2026-11-16T23:55:04+00:00. Semua angka diambil dari skrip; dokumen ini tidak memuat URL.
 
 ## Cakupan
 
@@ -190,12 +190,13 @@ Perbedaan AUC menunjukkan seberapa besar sinyal pemisah berasal dari path/query.
 ## Baseline satu fitur
 
 Baseline memakai nilai fitur mentah pada kelompok diagnosis yang sama, tanpa latihan model.
+Arah skor tetap: **nilai lebih besar = lebih condong phishing** (tanpa pembalikan tanda).
 
-| Skor | ROC-AUC | PR-AUC |
-|---|---|---|
-| `URLLength` saja | 0.9367 | 0.9927 |
-| `DomainLength` saja | 0.9522 | 0.9947 |
-| Model B (19 fitur) | 0.6687 | 0.9223 |
+| Skor | Arah | ROC-AUC | PR-AUC |
+|---|---|---|---|
+| `URLLength` saja | higher_is_phishing | 0.9367 | 0.9927 |
+| `DomainLength` saja | higher_is_phishing | 0.9522 | 0.9947 |
+| Model B (19 fitur) | higher_is_phishing (P(phishing)) | 0.6687 | 0.9223 |
 
 Baseline satu fitur hanya memakai satu kolom, sehingga perbandingan ini mengukur nilai tambah fitur lain secara kasar.
 
@@ -211,6 +212,103 @@ Kontribusi `pred_contribs` per URL; nilai positif berarti mendorong phishing. UR
 
 URL dipilih deterministik: tiga URL legitimate pertama dengan path kosong/`/` tanpa query.
 
+## Kesetaraan fitur (parity)
+
+Sampel acak **5000** baris dari split train (seed 42; legit 2870, phishing 2130). Test tidak dipakai. 'Cocok persis' berarti sama persis dengan kolom dataset.
+
+### Legit (n=2870)
+
+| Fitur | Cocok persis | MAE | Maks abs | Korelasi |
+|---|---|---|---|---|
+| `URLLength` | 0.0% | 1.0 | 1.0 | 1.0000 |
+| `DomainLength` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `TLDLength` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `NoOfSubDomain` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `IsDomainIP` | 100.0% | 0.0 | 0.0 | — |
+| `IsHTTPS` | 100.0% | 0.0 | 0.0 | — |
+| `NoOfLettersInURL` | 0.0% | 9.0 | 9.0 | 1.0000 |
+| `LetterRatioInURL` | 0.0% | 0.324224 | 0.517882 | 0.9366 |
+| `NoOfDegitsInURL` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `DegitRatioInURL` | 97.0% | 9.1e-05 | 0.009333 | 1.0000 |
+| `NoOfEqualsInURL` | 100.0% | 0.0 | 0.0 | — |
+| `NoOfQMarkInURL` | 100.0% | 0.0 | 0.0 | — |
+| `NoOfAmpersandInURL` | 100.0% | 0.0 | 0.0 | — |
+| `NoOfOtherSpecialCharsInURL` | 1.22% | 1.841115 | 2.0 | 0.6037 |
+| `SpacialCharRatioInURL` | 0.0% | 0.068477 | 0.114471 | 0.5011 |
+| `HasObfuscation` | 100.0% | 0.0 | 0.0 | — |
+| `NoOfObfuscatedChar` | 100.0% | 0.0 | 0.0 | — |
+| `ObfuscationRatio` | 100.0% | 0.0 | 0.0 | — |
+| `TLDLegitimateProb` | 0.0% | 0.535927 | 0.995553 | -0.4042 |
+
+### Phishing (n=2130)
+
+| Fitur | Cocok persis | MAE | Maks abs | Korelasi |
+|---|---|---|---|---|
+| `URLLength` | 47.84% | 0.521596 | 1.0 | 1.0000 |
+| `DomainLength` | 99.95% | 0.001878 | 4.0 | 1.0000 |
+| `TLDLength` | 99.95% | 0.001878 | 4.0 | 0.9917 |
+| `NoOfSubDomain` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `IsDomainIP` | 99.95% | 0.000469 | 1.0 | 0.9352 |
+| `IsHTTPS` | 99.72% | 0.002817 | 1.0 | 0.9944 |
+| `NoOfLettersInURL` | 0.0% | 6.164319 | 16.0 | 0.9994 |
+| `LetterRatioInURL` | 0.0% | 0.181291 | 0.523667 | 0.6771 |
+| `NoOfDegitsInURL` | 98.64% | 0.013615 | 1.0 | 1.0000 |
+| `DegitRatioInURL` | 56.1% | 0.000886 | 0.04 | 0.9996 |
+| `NoOfEqualsInURL` | 99.77% | 0.002347 | 1.0 | 0.9979 |
+| `NoOfQMarkInURL` | 100.0% | 0.0 | 0.0 | 1.0000 |
+| `NoOfAmpersandInURL` | 96.9% | 0.094366 | 26.0 | 0.3173 |
+| `NoOfOtherSpecialCharsInURL` | 10.66% | 1.585446 | 31.0 | 0.9360 |
+| `SpacialCharRatioInURL` | 0.8% | 0.044544 | 0.173294 | 0.4753 |
+| `HasObfuscation` | 97.79% | 0.022066 | 1.0 | 0.4603 |
+| `NoOfObfuscatedChar` | 97.56% | 0.058685 | 15.0 | 0.8117 |
+| `ObfuscationRatio` | 97.46% | 0.000488 | 0.104826 | 0.6479 |
+| `TLDLegitimateProb` | 0.0% | 0.333794 | 0.984275 | 0.6352 |
+
+### TLDLegitimateProb
+
+- Tabel: `src/tld_probs.json` (12597 TLD), dibuat oleh `src/train.py` dari split train.
+- Rumus per TLD: `(jumlah legit per TLD + 1) / (jumlah total per TLD + 2)`; default: `(jumlah legit train + 1) / (jumlah baris train + 2)` (Laplace smoothing).
+- Nilai default dipakai pada **0.2%** baris sampel karena TLD tidak ada di tabel; nilai default tabel = `0.571894`.
+
+## Fitur homepage legitimate: T18 vs data latih
+
+Median fitur **3** homepage T18 (anonim) dibandingkan median **107880** homepage legitimate di data latih.
+
+| Fitur | Median T18 | Rentang T18 | Median latih | Delta |
+|---|---|---|---|---|
+| `URLLength` | 28.0 | 21.0..30.0 | 27.0 | 1.0 |
+| `DomainLength` | 19.0 | 12.0..21.0 | 19.0 | 0.0 |
+| `TLDLength` | 2.0 | 2.0..2.0 | 3.0 | -1.0 |
+| `NoOfSubDomain` | 2.0 | 2.0..2.0 | 1.0 | 1.0 |
+| `IsDomainIP` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `IsHTTPS` | 1.0 | 1.0..1.0 | 1.0 | 0.0 |
+| `NoOfLettersInURL` | 21.0 | 14.0..23.0 | 22.0 | -1.0 |
+| `LetterRatioInURL` | 0.75 | 0.666667..0.766667 | 0.806452 | -0.056452 |
+| `NoOfDegitsInURL` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `DegitRatioInURL` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `NoOfEqualsInURL` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `NoOfQMarkInURL` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `NoOfAmpersandInURL` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `NoOfOtherSpecialCharsInURL` | 4.0 | 4.0..4.0 | 3.0 | 1.0 |
+| `SpacialCharRatioInURL` | 0.142857 | 0.133333..0.190476 | 0.115385 | 0.027472 |
+| `HasObfuscation` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `NoOfObfuscatedChar` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `ObfuscationRatio` | 0.0 | 0.0..0.0 | 0.0 | 0.0 |
+| `TLDLegitimateProb` | 0.75 | 0.75..0.75 | 0.775718 | -0.025718 |
+
+## Sensitivitas skor URL legitimate
+
+Jumlah URL legitimate: **55**; skor P(phishing), makin besar makin condong phishing.
+`trailing_slash` menambah `/` bila belum ada dan menghapusnya bila sudah ada; `www_prefix` hanya menambah bila belum berawalan `www.`; `scheme_flip` menukar `http` dan `https`.
+
+| Varian | URL berubah | Mean | Median | Delta mean | Delta median | Naik | Turun |
+|---|---|---|---|---|---|---|---|
+| original | 0 | 0.8758 | 1.0 | — | — | — | — |
+| trailing_slash | 31 | 0.8757 | 1.0 | -0.0001 | 0.0000 | 7 | 1 |
+| www_prefix | 23 | 0.8741 | 0.9999 | -0.0018 | 0.0000 | 6 | 4 |
+| uppercase_host | 55 | 0.8758 | 1.0 | 0.0000 | 0.0000 | 0 | 0 |
+| scheme_flip | 55 | 1.0 | 1.0 | 0.1241 | 0.0000 | 32 | 0 |
+
 ## Keterbatasan
 
 - Set kecil dan satu snapshot; sapuan ambang rawan overfit.
@@ -218,6 +316,11 @@ URL dipilih deterministik: tiga URL legitimate pertama dengan path kosong/`/` ta
 - Label legitimate masih kurasi manual dan belum diverifikasi per URL.
 - Varian `no_path_query` dan `www_prefix` mengubah URL, sehingga bukan lagi URL asli.
 - Baseline `URLLength`/`DomainLength` hanya satu fitur; selisih AUC bukan bukti kausalitas.
+- Parity membandingkan definisi repo dengan kolom dataset yang proses pembuatannya tidak terdokumentasi; selisih bukan otomatis bug.
+- Sampel parity hanya 5000 baris train; persentase dan korelasi bisa berubah pada sampel lain.
+- Referensi homepage latih adalah seluruh URL root legitimate, bukan kurasi 'homepage'.
+- Huruf besar host tidak mengubah host secara standar URL, tetapi model menerima string mentah.
+- Varian sensitivitas mengubah URL asli, jadi skornya bukan skor URL sebenarnya.
 - Jejak homepage adalah contoh kecil, bukan sampel representatif seluruh legitimate.
 - Dokumen ini sengaja tidak memuat URL feed; daftar error lokal ada di `data/realworld/errors.csv`.
 

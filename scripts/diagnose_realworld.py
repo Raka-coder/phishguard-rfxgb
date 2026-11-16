@@ -18,6 +18,7 @@ import numpy as np
 import xgboost as xgb
 from sklearn.metrics import average_precision_score, roc_auc_score
 
+from scripts.check_feature_parity import training_diagnostics
 from scripts.eval_realworld import is_valid_url, load_rows, metrics, score_model_only
 from src.config import LABEL_LEGIT, LABEL_PHISH, THRESHOLD, URL_FEATURES
 from src.feature_utils import extract_features, to_frame
@@ -189,6 +190,60 @@ def legit_variant_experiment(urls: list[str]) -> dict[str, object]:
     return payload
 
 
+def toggled_trailing_slash(url: str) -> str:
+    """Tambah `/` di akhir path, atau hapus bila sudah ada (`/` tunggal tetap)."""
+    parts = urlsplit(url)
+    path = parts.path
+    if path.endswith("/"):
+        path = path[:-1] or "/"
+    else:
+        path = f"{path}/"
+    return urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+
+
+def uppercase_host(url: str) -> str:
+    """Ubah host (dan port) menjadi huruf besar; skema/path/query tetap."""
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc.upper(), parts.path, parts.query, parts.fragment))
+
+
+def flipped_scheme(url: str) -> str:
+    """Tukar `http` <-> `https`, bagian lain tetap."""
+    parts = urlsplit(url)
+    scheme = "http" if parts.scheme.lower() == "https" else "https"
+    return urlunsplit((scheme, parts.netloc, parts.path, parts.query, parts.fragment))
+
+
+def legit_sensitivity_experiment(urls: list[str]) -> dict[str, object]:
+    """Bandingkan skor legit pada variasi trailing slash, www., host case, dan skema."""
+    if not urls:
+        return {"available": False, "reason": "tidak ada URL legitimate"}
+    variants = {
+        "original": urls,
+        "trailing_slash": [toggled_trailing_slash(url) for url in urls],
+        "www_prefix": [with_www(url) for url in urls],
+        "uppercase_host": [uppercase_host(url) for url in urls],
+        "scheme_flip": [flipped_scheme(url) for url in urls],
+    }
+    scores = {name: np.asarray(score_model_only(values), dtype=float) for name, values in variants.items()}
+    original = scores["original"]
+    payload: dict[str, object] = {
+        "available": True,
+        "n": len(urls),
+        "direction": "skor P(phishing), makin besar makin condong phishing",
+        "variants": {},
+    }
+    for name, values in scores.items():
+        entry: dict[str, object] = {
+            "urls_changed": int(sum(a != b for a, b in zip(variants[name], variants["original"]))),
+            **score_distribution(values.tolist()),
+        }
+        if name != "original":
+            entry["delta_vs_original"] = _delta_stats(values, original)
+        payload["variants"][name] = entry
+    return payload
+
+
 def phishing_stripped_experiment(phishing_urls: list[str], legit_urls: list[str]) -> dict[str, object]:
     """Hapus path/query pada URL phishing, lalu bandingkan dengan legit yang juga di-strip."""
     if not phishing_urls or not legit_urls:
@@ -226,11 +281,21 @@ def single_feature_baselines(
     return {
         "available": True,
         "note": "Skor baseline = nilai fitur mentah; nilai lebih besar dianggap lebih condong phishing.",
+        "direction": "higher_is_phishing",
         "baselines": {
-            "URLLength": auc_block(y_phishing, [item["URLLength"] for item in full]),
-            "DomainLength": auc_block(y_phishing, [item["DomainLength"] for item in stripped]),
+            "URLLength": {
+                "direction": "higher_is_phishing",
+                **auc_block(y_phishing, [item["URLLength"] for item in full]),
+            },
+            "DomainLength": {
+                "direction": "higher_is_phishing",
+                **auc_block(y_phishing, [item["DomainLength"] for item in stripped]),
+            },
         },
-        "model_b": auc_block(y_phishing, model_scores),
+        "model_b": {
+            "direction": "higher_is_phishing (P(phishing))",
+            **auc_block(y_phishing, model_scores),
+        },
     }
 
 
@@ -281,6 +346,7 @@ def build_diagnosis(
     urls: list[str],
     probabilities: list[float],
     in_allowlist: list[bool],
+    feature_parity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     group = [
         index
@@ -324,11 +390,13 @@ def build_diagnosis(
             "top_features": aggregate_contributions(fp_matrix),
         },
         "legit_variants": legit_variant_experiment(legit_urls),
+        "legit_sensitivity": legit_sensitivity_experiment(legit_urls),
         "phishing_stripped": phishing_stripped_experiment(group_phishing_urls, group_legit_urls),
         "single_feature_baselines": single_feature_baselines(
             group_phishing_urls, group_legit_urls, phishing_scores + legit_scores
         ),
         "legit_homepage_traces": homepage_traces(rows, urls, probabilities),
+        "feature_parity": feature_parity or {"available": False, "reason": "tidak dihitung"},
     }
 
 
@@ -464,15 +532,18 @@ def render_markdown(payload: dict[str, object]) -> str:
     if baselines.get("available"):
         lines += [
             "Baseline memakai nilai fitur mentah pada kelompok diagnosis yang sama, tanpa latihan model.",
+            "Arah skor tetap: **nilai lebih besar = lebih condong phishing** (tanpa pembalikan tanda).",
             "",
-            "| Skor | ROC-AUC | PR-AUC |",
-            "|---|---|---|",
+            "| Skor | Arah | ROC-AUC | PR-AUC |",
+            "|---|---|---|---|",
         ]
         for name, values in baselines["baselines"].items():
-            lines.append(f"| `{name}` saja | {values['roc_auc']} | {values['pr_auc']} |")
+            lines.append(
+                f"| `{name}` saja | {values['direction']} | {values['roc_auc']} | {values['pr_auc']} |"
+            )
         model_b = baselines["model_b"]
         lines += [
-            f"| Model B (19 fitur) | {model_b['roc_auc']} | {model_b['pr_auc']} |",
+            f"| Model B (19 fitur) | {model_b['direction']} | {model_b['roc_auc']} | {model_b['pr_auc']} |",
             "",
             "Baseline satu fitur hanya memakai satu kolom, sehingga perbandingan ini "
             "mengukur nilai tambah fitur lain secara kasar.",
@@ -505,6 +576,92 @@ def render_markdown(payload: dict[str, object]) -> str:
     else:
         lines.append("Tidak ada URL legitimate bertipe homepage polos pada set ini.")
 
+    parity = payload.get("feature_parity", {})
+    if parity.get("available"):
+        sample = parity["sample"]
+        lines += [
+            "",
+            "## Kesetaraan fitur (parity)",
+            "",
+            f"Sampel acak **{sample['size']}** baris dari split train "
+            f"(seed {sample['seed']}; legit {sample['n_legit']}, phishing {sample['n_phishing']}). "
+            "Test tidak dipakai. 'Cocok persis' berarti sama persis dengan kolom dataset.",
+        ]
+        for label in ("legit", "phishing"):
+            block = parity["by_label"][label]
+            lines += [
+                "",
+                f"### {label.capitalize()} (n={block['n']})",
+                "",
+                "| Fitur | Cocok persis | MAE | Maks abs | Korelasi |",
+                "|---|---|---|---|---|",
+            ]
+            for feature in parity["computed_feature_names"]:
+                values = block["features"][feature]
+                lines.append(
+                    f"| `{feature}` | {values['exact_match_pct']}% | {values['mean_abs_diff']} | "
+                    f"{values['max_abs_diff']} | {_fmt(values['correlation'])} |"
+                )
+        tld = parity["tld_probability"]
+        lines += [
+            "",
+            "### TLDLegitimateProb",
+            "",
+            f"- Tabel: `{tld['source']}` ({tld['n_tlds']} TLD), dibuat oleh `src/train.py` "
+            "dari split train.",
+            f"- Rumus per TLD: `{tld['formula']}`; default: `{tld['default_formula']}` "
+            "(Laplace smoothing).",
+            f"- Nilai default dipakai pada **{tld['sample_default_fallback_pct']}%** baris sampel "
+            f"karena TLD tidak ada di tabel; nilai default tabel = `{tld['default']}`.",
+        ]
+    else:
+        lines += [
+            "",
+            "## Kesetaraan fitur (parity)",
+            "",
+            f"Tidak tersedia: {parity.get('reason', '—')}.",
+        ]
+
+    homepage = parity.get("homepage_comparison", {})
+    if homepage.get("available"):
+        lines += [
+            "",
+            "## Fitur homepage legitimate: T18 vs data latih",
+            "",
+            f"Median fitur **{homepage['n_urls']}** homepage T18 (anonim) dibandingkan median "
+            f"**{homepage['n_train_legit_homepages']}** homepage legitimate di data latih.",
+            "",
+            "| Fitur | Median T18 | Rentang T18 | Median latih | Delta |",
+            "|---|---|---|---|---|",
+        ]
+        for row in homepage["rows"]:
+            lines.append(
+                f"| `{row['feature']}` | {row['t18_median']} | {row['t18_min']}..{row['t18_max']} | "
+                f"{row['train_median']} | {row['delta']} |"
+            )
+
+    sensitivity = payload.get("legit_sensitivity", {})
+    if sensitivity.get("available"):
+        lines += [
+            "",
+            "## Sensitivitas skor URL legitimate",
+            "",
+            f"Jumlah URL legitimate: **{sensitivity['n']}**; {sensitivity['direction']}.",
+            "`trailing_slash` menambah `/` bila belum ada dan menghapusnya bila sudah ada; "
+            "`www_prefix` hanya menambah bila belum berawalan `www.`; `scheme_flip` menukar "
+            "`http` dan `https`.",
+            "",
+            "| Varian | URL berubah | Mean | Median | Delta mean | Delta median | Naik | Turun |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for name, values in sensitivity["variants"].items():
+            delta = values.get("delta_vs_original", {})
+            lines.append(
+                f"| {name} | {values['urls_changed']} | {values['mean']} | {values['median']} | "
+                f"{_fmt(delta.get('mean'))} | {_fmt(delta.get('median'))} | "
+                f"{delta.get('increased', '—')} | {delta.get('decreased', '—')} |"
+            )
+
     lines += [
         "",
         "## Keterbatasan",
@@ -514,6 +671,12 @@ def render_markdown(payload: dict[str, object]) -> str:
         "- Label legitimate masih kurasi manual dan belum diverifikasi per URL.",
         "- Varian `no_path_query` dan `www_prefix` mengubah URL, sehingga bukan lagi URL asli.",
         "- Baseline `URLLength`/`DomainLength` hanya satu fitur; selisih AUC bukan bukti kausalitas.",
+        "- Parity membandingkan definisi repo dengan kolom dataset yang proses pembuatannya "
+        "tidak terdokumentasi; selisih bukan otomatis bug.",
+        "- Sampel parity hanya 5000 baris train; persentase dan korelasi bisa berubah pada sampel lain.",
+        "- Referensi homepage latih adalah seluruh URL root legitimate, bukan kurasi 'homepage'.",
+        "- Huruf besar host tidak mengubah host secara standar URL, tetapi model menerima string mentah.",
+        "- Varian sensitivitas mengubah URL asli, jadi skornya bukan skor URL sebenarnya.",
         "- Jejak homepage adalah contoh kecil, bukan sampel representatif seluruh legitimate.",
         "- Dokumen ini sengaja tidak memuat URL feed; daftar error lokal ada di `data/realworld/errors.csv`.",
         "",
@@ -567,6 +730,15 @@ def main(argv: list[str] | None = None) -> int:
         print("Tidak ada URL valid; tidak ada yang didiagnosis.")
         return 2
     urls = [row["url"].strip() for row in rows]
+    homepage_urls = [
+        urls[index]
+        for index, row in enumerate(rows)
+        if int(row["label"]) == LABEL_LEGIT and is_plain_homepage(urls[index])
+    ][:_HOMEPAGE_TRACE_LIMIT]
+    try:
+        feature_parity = training_diagnostics(homepage_urls)
+    except (FileNotFoundError, OSError) as exc:
+        feature_parity = {"available": False, "reason": str(exc)}
 
     try:
         probabilities = score_model_only(urls)
@@ -575,6 +747,7 @@ def main(argv: list[str] | None = None) -> int:
             urls,
             probabilities,
             [is_trusted(_host(url)) for url in urls],
+            feature_parity,
         )
     except RuntimeError as exc:
         print(f"Artefak model belum siap: {exc}")
@@ -602,6 +775,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Baseline ROC-AUC: {summary} vs Model B={baselines['model_b']['roc_auc']}")
     print(f"Jejak homepage legitimate: {len(payload['legit_homepage_traces'])} URL")
+    parity = payload["feature_parity"]
+    if parity.get("available"):
+        sample = parity["sample"]
+        print(
+            f"Parity: {sample['size']} baris train; fallback TLD "
+            f"{parity['tld_probability']['sample_default_fallback_pct']}%"
+        )
+    else:
+        print(f"Parity tidak tersedia: {parity.get('reason', '—')}")
+    sensitivity = payload["legit_sensitivity"]
+    if sensitivity.get("available"):
+        changed = {
+            name: values["urls_changed"] for name, values in sensitivity["variants"].items()
+        }
+        print(f"Sensitivitas legit berubah: {changed}")
     return 0
 
 
