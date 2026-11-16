@@ -1,0 +1,51 @@
+{
+  "generated_at": "2026-11-16T22:57:17+00:00",
+  "dataset": {
+    "path": "data/realworld/urls.csv",
+    "n_total": 355,
+    "n_evaluated": 355,
+    "n_skipped_invalid": 0,
+    "n_phishing": 300,
+    "n_legit": 55,
+    "sources": {
+      "openphish": 300,
+      "manual": 55
+    },
+    "collected_at_min": "2026-11-16T22:54:53+00:00",
+    "collected_at_max": "2026-11-16T22:54:53+00:00"
+  },
+  "definitions": {
+    "positive": "phishing (label 0)",
+    "suspicious_counts_as": "non-phishing, dilaporkan terpisah",
+    "model_only": "Model B, ambang label 0.5, tanpa allowlist",
+    "with_reputation": "predict_url (allowlist + uncertainty band 0.4-0.65)"
+  },
+  "thresholds": {
+    "model_label": 0.5,
+    "phishing": 0.65,
+    "suspicious": 0.4
+  },
+  "variants": {
+    "model_only": {
+      "n": 355,
+      "tp": 300,
+      "fp": 49,
+      "fn": 0,
+      "tn": 6,
+      "precision": 0.8596,
+      "recall": 1.0,
+      "f1": 0.9245
+    },
+    "with_reputation": {
+      "n": 355,
+      "tp": 300,
+      "fp": 25,
+      "fn": 0,
+      "tn": 30,
+      "precision": 0.9231,
+      "recall": 1.0,
+      "f1": 0.96,
+      "suspicious": 0
+    }
+  }
+}
