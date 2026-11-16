@@ -10,8 +10,12 @@ from scripts.diagnose_realworld import (
     aggregate_contributions,
     auc_block,
     build_diagnosis,
+    homepage_traces,
+    is_plain_homepage,
+    phishing_stripped_experiment,
     render_markdown,
     score_distribution,
+    single_feature_baselines,
     threshold_sweep,
     with_www,
     without_path_query,
@@ -69,6 +73,57 @@ def test_aggregate_contributions_sorts_by_absolute_mean():
     assert top[1]["feature"] == URL_FEATURES[0]
 
 
+def test_plain_homepage_detection():
+    assert is_plain_homepage("https://www.bbc.com")
+    assert is_plain_homepage("https://www.bbc.com/")
+    assert not is_plain_homepage("https://www.bbc.com/news")
+    assert not is_plain_homepage("https://www.bbc.com/?q=1")
+    assert not is_plain_homepage("https://www.bbc.com/#top")
+
+
+def test_phishing_stripped_and_single_feature_baselines():
+    phishing = [
+        "https://secure-login.example.com/verify/account?token=abc",
+        "http://192.168.0.1/paypal-login-verify.xyz",
+    ]
+    legit = ["https://www.bbc.com/news?x=1"]
+
+    stripped = phishing_stripped_experiment(phishing, legit)
+    assert stripped["available"] is True
+    assert (stripped["n_phishing"], stripped["n_legit"]) == (2, 1)
+    delta = stripped["phishing_delta"]
+    assert abs(delta["mean"] - (delta["mean_after"] - delta["mean_before"])) <= 1e-4
+    assert delta["increased"] + delta["decreased"] + delta["unchanged"] == 2
+    assert 0 <= stripped["auc_stripped"]["roc_auc"] <= 1
+    assert 0 <= stripped["auc_original"]["roc_auc"] <= 1
+
+    baselines = single_feature_baselines(phishing, legit, [0.99, 0.98, 0.2])
+    assert baselines["available"] is True
+    assert set(baselines["baselines"]) == {"URLLength", "DomainLength"}
+    assert baselines["baselines"]["URLLength"]["roc_auc"] is not None
+    assert baselines["baselines"]["DomainLength"]["roc_auc"] is not None
+    assert baselines["model_b"]["roc_auc"] == 1.0
+
+    assert phishing_stripped_experiment([], legit)["available"] is False
+    assert single_feature_baselines(phishing, [], [0.5, 0.5])["available"] is False
+
+
+def test_homepage_traces_are_anonymous():
+    rows = [
+        {"url": "https://www.bbc.com", "label": "1"},
+        {"url": "https://example.org/", "label": "1"},
+        {"url": "https://example.net/news", "label": "1"},
+        {"url": "https://badsite.xyz/login", "label": "0"},
+    ]
+    urls = [row["url"] for row in rows]
+    traces = homepage_traces(rows, urls, [0.9, 0.7, 0.8, 0.99], limit=2)
+    assert [trace["id"] for trace in traces] == ["legit_homepage_1", "legit_homepage_2"]
+    assert all(len(trace["top_features"]) == 3 for trace in traces)
+    assert all(trace["predicted_phishing"] is True for trace in traces)
+    dumped = json.dumps(traces)
+    assert "http" not in dumped and "bbc" not in dumped
+
+
 def test_build_diagnosis_outputs_aggregates_without_urls(tmp_path):
     collected = "2026-11-17T00:00:00+00:00"
     rows = [
@@ -98,6 +153,11 @@ def test_build_diagnosis_outputs_aggregates_without_urls(tmp_path):
     assert len(payload["fp_outside_allowlist"]["top_features"]) > 0
     assert payload["legit_variants"]["n"] == 2
     assert set(payload["legit_variants"]["variants"]) == {"original", "no_path_query", "www_prefix"}
+    assert payload["phishing_stripped"]["available"] is True
+    assert payload["single_feature_baselines"]["available"] is True
+    assert len(payload["legit_homepage_traces"]) == 1
+    assert payload["legit_homepage_traces"][0]["id"] == "legit_homepage_1"
+    assert set(payload["single_feature_baselines"]["baselines"]) == {"URLLength", "DomainLength"}
 
     dumped = json.dumps(payload, ensure_ascii=False)
     assert "http" not in dumped  # tidak ada URL di keluaran publik
@@ -109,7 +169,11 @@ def test_build_diagnosis_outputs_aggregates_without_urls(tmp_path):
     write_outputs(payload, json_path, doc_path)
     saved = json.loads(json_path.read_text(encoding="utf-8"))
     assert saved["diagnosis"]["group"]["n"] == 3
-    assert "Sapuan ambang" in doc_path.read_text(encoding="utf-8")
+    doc = doc_path.read_text(encoding="utf-8")
+    assert "Sapuan ambang" in doc
+    assert "Hapus path/query" in doc
+    assert "Baseline satu fitur" in doc
+    assert "Jejak kontribusi homepage" in doc
 
 
 def test_real_model_scores_variants_end_to_end():

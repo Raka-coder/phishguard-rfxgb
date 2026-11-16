@@ -1,6 +1,6 @@
-# Diagnosis set uji dunia nyata (T18c)
+# Diagnosis set uji dunia nyata (T18c/T18d)
 
-Dihasilkan otomatis oleh `scripts/diagnose_realworld.py` pada 2026-11-16T23:35:16+00:00. Semua angka diambil dari skrip; dokumen ini tidak memuat URL.
+Dihasilkan otomatis oleh `scripts/diagnose_realworld.py` pada 2026-11-16T23:44:18+00:00. Semua angka diambil dari skrip; dokumen ini tidak memuat URL.
 
 ## Cakupan
 
@@ -167,12 +167,58 @@ Jumlah URL legitimate: **55**. Skor adalah P(phishing) dari Model B.
 | no_path_query | 0.2014 | 0.0021 | 0.0 | 0.9996 | 20.0 | -0.6744 | -0.9409 | 0 | 55 |
 | www_prefix | 0.8741 | 0.9999 | 0.0033 | 1.0 | 89.09 | -0.0018 | 0.0000 | 6 | 4 |
 
+## Hapus path/query pada URL phishing
+
+Jumlah URL phishing: **300**, legitimate pembanding: **30** (kelompok diagnosis yang sama).
+
+| Statistik skor phishing | Asli | Tanpa path/query | Perubahan |
+|---|---|---|---|
+| Mean | 0.9986 | 0.9045 | -0.0941 |
+| Median | 1.0 | 1.0 | -0.0 |
+
+Naik: 12, Turun: 283, Tetap: 5.
+
+Legit pembanding: mean 0.8391 → 0.2006 (delta -0.6385).
+
+| Perbandingan ROC-AUC | ROC-AUC | PR-AUC |
+|---|---|---|
+| Phishing stripped vs legit stripped | 0.9541 | 0.9949 |
+| Referensi: URL asli | 0.6687 | 0.9223 |
+
+Perbedaan AUC menunjukkan seberapa besar sinyal pemisah berasal dari path/query.
+
+## Baseline satu fitur
+
+Baseline memakai nilai fitur mentah pada kelompok diagnosis yang sama, tanpa latihan model.
+
+| Skor | ROC-AUC | PR-AUC |
+|---|---|---|
+| `URLLength` saja | 0.9367 | 0.9927 |
+| `DomainLength` saja | 0.9522 | 0.9947 |
+| Model B (19 fitur) | 0.6687 | 0.9223 |
+
+Baseline satu fitur hanya memakai satu kolom, sehingga perbandingan ini mengukur nilai tambah fitur lain secara kasar.
+
+## Jejak kontribusi homepage legitimate
+
+Kontribusi `pred_contribs` per URL; nilai positif berarti mendorong phishing. URL asli tidak ditampilkan (hanya label anonim).
+
+| URL | Skor | Diprediksi phishing | Fitur pendorong utama |
+|---|---|---|---|
+| `legit_homepage_1` | 0.923 | ya | `DomainLength` (2.7809); `NoOfOtherSpecialCharsInURL` (2.2381); `IsHTTPS` (-1.3474) |
+| `legit_homepage_2` | 0.8747 | ya | `DomainLength` (5.3999); `NoOfOtherSpecialCharsInURL` (2.2162); `URLLength` (-1.8769) |
+| `legit_homepage_3` | 0.2845 | tidak | `DomainLength` (10.6723); `URLLength` (-8.1349); `NoOfOtherSpecialCharsInURL` (2.1225) |
+
+URL dipilih deterministik: tiga URL legitimate pertama dengan path kosong/`/` tanpa query.
+
 ## Keterbatasan
 
 - Set kecil dan satu snapshot; sapuan ambang rawan overfit.
 - Kontribusi fitur menjelaskan model, bukan sebab phishing di dunia nyata.
 - Label legitimate masih kurasi manual dan belum diverifikasi per URL.
 - Varian `no_path_query` dan `www_prefix` mengubah URL, sehingga bukan lagi URL asli.
+- Baseline `URLLength`/`DomainLength` hanya satu fitur; selisih AUC bukan bukti kausalitas.
+- Jejak homepage adalah contoh kecil, bukan sampel representatif seluruh legitimate.
 - Dokumen ini sengaja tidak memuat URL feed; daftar error lokal ada di `data/realworld/errors.csv`.
 
 ## Cara menjalankan

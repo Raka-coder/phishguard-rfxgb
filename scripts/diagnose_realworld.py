@@ -20,7 +20,7 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 
 from scripts.eval_realworld import is_valid_url, load_rows, metrics, score_model_only
 from src.config import LABEL_LEGIT, LABEL_PHISH, THRESHOLD, URL_FEATURES
-from src.feature_utils import to_frame
+from src.feature_utils import extract_features, to_frame
 from src.predict import _load
 from src.reputation import is_trusted
 
@@ -31,6 +31,8 @@ DEFAULT_DOC = ROOT / "docs" / "diagnosis_realworld.md"
 THRESHOLDS = [round(0.10 + i * 0.01, 2) for i in range(90)]
 QUANTILES = [0.0, 0.01, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 1.0]
 _TOP_FEATURES = 10
+_TOP_FEATURES_PER_URL = 3
+_HOMEPAGE_TRACE_LIMIT = 3
 
 
 def _host(url: str) -> str:
@@ -148,6 +150,22 @@ def aggregate_contributions(toward_phishing: np.ndarray) -> list[dict[str, objec
     ]
 
 
+def _delta_stats(values: np.ndarray, original: np.ndarray) -> dict[str, object]:
+    """Ringkasan perubahan skor varian terhadap skor asli."""
+    delta = values - original
+    return {
+        "mean_before": round(float(original.mean()), 4),
+        "mean_after": round(float(values.mean()), 4),
+        "mean": round(float(delta.mean()), 4),
+        "median_before": round(float(np.median(original)), 4),
+        "median_after": round(float(np.median(values)), 4),
+        "median": round(float(np.median(delta)), 4),
+        "increased": int((delta > 0).sum()),
+        "decreased": int((delta < 0).sum()),
+        "unchanged": int((delta == 0).sum()),
+    }
+
+
 def legit_variant_experiment(urls: list[str]) -> dict[str, object]:
     """Skor ulang URL legitimate: asli, tanpa path/query, dan dengan awalan www."""
     if not urls:
@@ -167,15 +185,95 @@ def legit_variant_experiment(urls: list[str]) -> dict[str, object]:
     for name, values in scores.items():
         if name == "original":
             continue
-        delta = values - original
-        payload["delta_vs_original"][name] = {
-            "mean": round(float(delta.mean()), 4),
-            "median": round(float(np.median(delta)), 4),
-            "increased": int((delta > 0).sum()),
-            "decreased": int((delta < 0).sum()),
-            "unchanged": int((delta == 0).sum()),
-        }
+        payload["delta_vs_original"][name] = _delta_stats(values, original)
     return payload
+
+
+def phishing_stripped_experiment(phishing_urls: list[str], legit_urls: list[str]) -> dict[str, object]:
+    """Hapus path/query pada URL phishing, lalu bandingkan dengan legit yang juga di-strip."""
+    if not phishing_urls or not legit_urls:
+        return {"available": False, "reason": "butuh minimal satu URL phishing dan satu legitimate"}
+    original_phishing = np.asarray(score_model_only(phishing_urls), dtype=float)
+    stripped_phishing = np.asarray(
+        score_model_only([without_path_query(url) for url in phishing_urls]), dtype=float
+    )
+    original_legit = np.asarray(score_model_only(legit_urls), dtype=float)
+    stripped_legit = np.asarray(
+        score_model_only([without_path_query(url) for url in legit_urls]), dtype=float
+    )
+    y_phishing = [1] * len(phishing_urls) + [0] * len(legit_urls)
+    return {
+        "available": True,
+        "n_phishing": len(phishing_urls),
+        "n_legit": len(legit_urls),
+        "phishing_delta": _delta_stats(stripped_phishing, original_phishing),
+        "legit_delta": _delta_stats(stripped_legit, original_legit),
+        "auc_stripped": auc_block(y_phishing, stripped_phishing.tolist() + stripped_legit.tolist()),
+        "auc_original": auc_block(y_phishing, original_phishing.tolist() + original_legit.tolist()),
+    }
+
+
+def single_feature_baselines(
+    phishing_urls: list[str], legit_urls: list[str], model_scores: list[float]
+) -> dict[str, object]:
+    """ROC-AUC baseline satu fitur: `URLLength` (URL penuh) dan `DomainLength` (tanpa path)."""
+    if not phishing_urls or not legit_urls:
+        return {"available": False, "reason": "butuh minimal satu URL phishing dan satu legitimate"}
+    urls = phishing_urls + legit_urls
+    y_phishing = [1] * len(phishing_urls) + [0] * len(legit_urls)
+    stripped = [extract_features(without_path_query(url)) for url in urls]
+    full = [extract_features(url) for url in urls]
+    return {
+        "available": True,
+        "note": "Skor baseline = nilai fitur mentah; nilai lebih besar dianggap lebih condong phishing.",
+        "baselines": {
+            "URLLength": auc_block(y_phishing, [item["URLLength"] for item in full]),
+            "DomainLength": auc_block(y_phishing, [item["DomainLength"] for item in stripped]),
+        },
+        "model_b": auc_block(y_phishing, model_scores),
+    }
+
+
+def is_plain_homepage(url: str) -> bool:
+    """Homepage polos: path kosong atau `/`, tanpa query/fragment."""
+    parts = urlsplit(url)
+    return parts.path in ("", "/") and not parts.query and not parts.fragment
+
+
+def homepage_traces(
+    rows: list[dict[str, str]],
+    urls: list[str],
+    probabilities: list[float],
+    limit: int = _HOMEPAGE_TRACE_LIMIT,
+) -> list[dict[str, object]]:
+    """Kontribusi fitur untuk beberapa URL legit homepage polos; URL tidak disertakan."""
+    indices = [
+        index
+        for index, row in enumerate(rows)
+        if int(row["label"]) == LABEL_LEGIT and is_plain_homepage(urls[index])
+    ][:limit]
+    if not indices:
+        return []
+    matrix = contribution_matrix([urls[index] for index in indices])
+    traces = []
+    for position, index in enumerate(indices):
+        row = matrix[position]
+        order = np.argsort(np.abs(row))[::-1][:_TOP_FEATURES_PER_URL]
+        traces.append(
+            {
+                "id": f"legit_homepage_{position + 1}",
+                "model_probability": round(float(probabilities[index]), 4),
+                "predicted_phishing": probabilities[index] >= THRESHOLD,
+                "top_features": [
+                    {
+                        "feature": URL_FEATURES[column],
+                        "contribution_toward_phishing": round(float(row[column]), 4),
+                    }
+                    for column in order
+                ],
+            }
+        )
+    return traces
 
 
 def build_diagnosis(
@@ -205,6 +303,8 @@ def build_diagnosis(
     legit_urls = [urls[index] for index, row in enumerate(rows) if int(row["label"]) == LABEL_LEGIT]
     phishing_scores = [score for score, label in zip(scores, y_true) if label == LABEL_PHISH]
     legit_scores = [score for score, label in zip(scores, y_true) if label == LABEL_LEGIT]
+    group_phishing_urls = [urls[index] for index in group if int(rows[index]["label"]) == LABEL_PHISH]
+    group_legit_urls = [urls[index] for index in group if int(rows[index]["label"]) == LABEL_LEGIT]
 
     return {
         "group": {
@@ -224,6 +324,11 @@ def build_diagnosis(
             "top_features": aggregate_contributions(fp_matrix),
         },
         "legit_variants": legit_variant_experiment(legit_urls),
+        "phishing_stripped": phishing_stripped_experiment(group_phishing_urls, group_legit_urls),
+        "single_feature_baselines": single_feature_baselines(
+            group_phishing_urls, group_legit_urls, phishing_scores + legit_scores
+        ),
+        "legit_homepage_traces": homepage_traces(rows, urls, probabilities),
     }
 
 
@@ -237,7 +342,7 @@ def render_markdown(payload: dict[str, object]) -> str:
     variants = payload["legit_variants"]
 
     lines = [
-        "# Diagnosis set uji dunia nyata (T18c)",
+        "# Diagnosis set uji dunia nyata (T18c/T18d)",
         "",
         f"Dihasilkan otomatis oleh `scripts/diagnose_realworld.py` pada {generated}. "
         "Semua angka diambil dari skrip; dokumen ini tidak memuat URL.",
@@ -322,6 +427,84 @@ def render_markdown(payload: dict[str, object]) -> str:
             f"{delta.get('increased', '—')} | {delta.get('decreased', '—')} |"
         )
 
+    stripped = payload["phishing_stripped"]
+    baselines = payload["single_feature_baselines"]
+    traces = payload["legit_homepage_traces"]
+
+    lines += ["", "## Hapus path/query pada URL phishing", ""]
+    if stripped.get("available"):
+        delta = stripped["phishing_delta"]
+        lines += [
+            f"Jumlah URL phishing: **{stripped['n_phishing']}**, legitimate pembanding: "
+            f"**{stripped['n_legit']}** (kelompok diagnosis yang sama).",
+            "",
+            "| Statistik skor phishing | Asli | Tanpa path/query | Perubahan |",
+            "|---|---|---|---|",
+            f"| Mean | {delta['mean_before']} | {delta['mean_after']} | {delta['mean']} |",
+            f"| Median | {delta['median_before']} | {delta['median_after']} | {delta['median']} |",
+            "",
+            f"Naik: {delta['increased']}, Turun: {delta['decreased']}, Tetap: {delta['unchanged']}.",
+            "",
+            f"Legit pembanding: mean {stripped['legit_delta']['mean_before']} → "
+            f"{stripped['legit_delta']['mean_after']} (delta {stripped['legit_delta']['mean']}).",
+            "",
+            "| Perbandingan ROC-AUC | ROC-AUC | PR-AUC |",
+            "|---|---|---|",
+            f"| Phishing stripped vs legit stripped | {stripped['auc_stripped']['roc_auc']} | "
+            f"{stripped['auc_stripped']['pr_auc']} |",
+            f"| Referensi: URL asli | {stripped['auc_original']['roc_auc']} | "
+            f"{stripped['auc_original']['pr_auc']} |",
+            "",
+            "Perbedaan AUC menunjukkan seberapa besar sinyal pemisah berasal dari path/query.",
+        ]
+    else:
+        lines.append(f"Tidak tersedia: {stripped.get('reason', '—')}.")
+
+    lines += ["", "## Baseline satu fitur", ""]
+    if baselines.get("available"):
+        lines += [
+            "Baseline memakai nilai fitur mentah pada kelompok diagnosis yang sama, tanpa latihan model.",
+            "",
+            "| Skor | ROC-AUC | PR-AUC |",
+            "|---|---|---|",
+        ]
+        for name, values in baselines["baselines"].items():
+            lines.append(f"| `{name}` saja | {values['roc_auc']} | {values['pr_auc']} |")
+        model_b = baselines["model_b"]
+        lines += [
+            f"| Model B (19 fitur) | {model_b['roc_auc']} | {model_b['pr_auc']} |",
+            "",
+            "Baseline satu fitur hanya memakai satu kolom, sehingga perbandingan ini "
+            "mengukur nilai tambah fitur lain secara kasar.",
+        ]
+    else:
+        lines.append(f"Tidak tersedia: {baselines.get('reason', '—')}.")
+
+    lines += ["", "## Jejak kontribusi homepage legitimate", ""]
+    if traces:
+        lines += [
+            "Kontribusi `pred_contribs` per URL; nilai positif berarti mendorong phishing. "
+            "URL asli tidak ditampilkan (hanya label anonim).",
+            "",
+            "| URL | Skor | Diprediksi phishing | Fitur pendorong utama |",
+            "|---|---|---|---|",
+        ]
+        for trace in traces:
+            drivers = "; ".join(
+                f"`{item['feature']}` ({item['contribution_toward_phishing']})"
+                for item in trace["top_features"]
+            )
+            lines.append(
+                f"| `{trace['id']}` | {trace['model_probability']} | "
+                f"{'ya' if trace['predicted_phishing'] else 'tidak'} | {drivers} |"
+            )
+        lines += [
+            "",
+            "URL dipilih deterministik: tiga URL legitimate pertama dengan path kosong/`/` tanpa query.",
+        ]
+    else:
+        lines.append("Tidak ada URL legitimate bertipe homepage polos pada set ini.")
+
     lines += [
         "",
         "## Keterbatasan",
@@ -330,6 +513,8 @@ def render_markdown(payload: dict[str, object]) -> str:
         "- Kontribusi fitur menjelaskan model, bukan sebab phishing di dunia nyata.",
         "- Label legitimate masih kurasi manual dan belum diverifikasi per URL.",
         "- Varian `no_path_query` dan `www_prefix` mengubah URL, sehingga bukan lagi URL asli.",
+        "- Baseline `URLLength`/`DomainLength` hanya satu fitur; selisih AUC bukan bukti kausalitas.",
+        "- Jejak homepage adalah contoh kecil, bukan sampel representatif seluruh legitimate.",
         "- Dokumen ini sengaja tidak memuat URL feed; daftar error lokal ada di `data/realworld/errors.csv`.",
         "",
         "## Cara menjalankan",
@@ -404,6 +589,19 @@ def main(argv: list[str] | None = None) -> int:
         f"Grup {payload['group']['n']} URL; ROC-AUC={payload['auc']['roc_auc']} "
         f"PR-AUC={payload['auc']['pr_auc']}; FP di luar allowlist={payload['fp_outside_allowlist']['n']}"
     )
+    stripped = payload["phishing_stripped"]
+    if stripped.get("available"):
+        print(
+            f"Phishing tanpa path/query: delta mean={stripped['phishing_delta']['mean']} "
+            f"AUC stripped={stripped['auc_stripped']['roc_auc']} (asli={stripped['auc_original']['roc_auc']})"
+        )
+    baselines = payload["single_feature_baselines"]
+    if baselines.get("available"):
+        summary = ", ".join(
+            f"{name}={values['roc_auc']}" for name, values in baselines["baselines"].items()
+        )
+        print(f"Baseline ROC-AUC: {summary} vs Model B={baselines['model_b']['roc_auc']}")
+    print(f"Jejak homepage legitimate: {len(payload['legit_homepage_traces'])} URL")
     return 0
 
 

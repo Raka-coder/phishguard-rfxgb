@@ -1388,14 +1388,22 @@
       },
       "delta_vs_original": {
         "no_path_query": {
+          "mean_before": 0.8758,
+          "mean_after": 0.2014,
           "mean": -0.6744,
+          "median_before": 1.0,
+          "median_after": 0.0021,
           "median": -0.9409,
           "increased": 0,
           "decreased": 55,
           "unchanged": 0
         },
         "www_prefix": {
+          "mean_before": 0.8758,
+          "mean_after": 0.8741,
           "mean": -0.0018,
+          "median_before": 1.0,
+          "median_after": 0.9999,
           "median": 0.0,
           "increased": 6,
           "decreased": 4,
@@ -1403,7 +1411,119 @@
         }
       }
     },
-    "generated_at": "2026-11-16T23:35:16+00:00",
+    "phishing_stripped": {
+      "available": true,
+      "n_phishing": 300,
+      "n_legit": 30,
+      "phishing_delta": {
+        "mean_before": 0.9986,
+        "mean_after": 0.9045,
+        "mean": -0.0941,
+        "median_before": 1.0,
+        "median_after": 1.0,
+        "median": -0.0,
+        "increased": 12,
+        "decreased": 283,
+        "unchanged": 5
+      },
+      "legit_delta": {
+        "mean_before": 0.8391,
+        "mean_after": 0.2006,
+        "mean": -0.6385,
+        "median_before": 0.9796,
+        "median_after": 0.0021,
+        "median": -0.8685,
+        "increased": 0,
+        "decreased": 30,
+        "unchanged": 0
+      },
+      "auc_stripped": {
+        "roc_auc": 0.9541,
+        "pr_auc": 0.9949
+      },
+      "auc_original": {
+        "roc_auc": 0.6687,
+        "pr_auc": 0.9223
+      }
+    },
+    "single_feature_baselines": {
+      "available": true,
+      "note": "Skor baseline = nilai fitur mentah; nilai lebih besar dianggap lebih condong phishing.",
+      "baselines": {
+        "URLLength": {
+          "roc_auc": 0.9367,
+          "pr_auc": 0.9927
+        },
+        "DomainLength": {
+          "roc_auc": 0.9522,
+          "pr_auc": 0.9947
+        }
+      },
+      "model_b": {
+        "roc_auc": 0.6687,
+        "pr_auc": 0.9223
+      }
+    },
+    "legit_homepage_traces": [
+      {
+        "id": "legit_homepage_1",
+        "model_probability": 0.923,
+        "predicted_phishing": true,
+        "top_features": [
+          {
+            "feature": "DomainLength",
+            "contribution_toward_phishing": 2.7809
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "contribution_toward_phishing": 2.2381
+          },
+          {
+            "feature": "IsHTTPS",
+            "contribution_toward_phishing": -1.3474
+          }
+        ]
+      },
+      {
+        "id": "legit_homepage_2",
+        "model_probability": 0.8747,
+        "predicted_phishing": true,
+        "top_features": [
+          {
+            "feature": "DomainLength",
+            "contribution_toward_phishing": 5.3999
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "contribution_toward_phishing": 2.2162
+          },
+          {
+            "feature": "URLLength",
+            "contribution_toward_phishing": -1.8769
+          }
+        ]
+      },
+      {
+        "id": "legit_homepage_3",
+        "model_probability": 0.2845,
+        "predicted_phishing": false,
+        "top_features": [
+          {
+            "feature": "DomainLength",
+            "contribution_toward_phishing": 10.6723
+          },
+          {
+            "feature": "URLLength",
+            "contribution_toward_phishing": -8.1349
+          },
+          {
+            "feature": "NoOfOtherSpecialCharsInURL",
+            "contribution_toward_phishing": 2.1225
+          }
+        ]
+      }
+    ],
+    "generated_at": "2026-11-16T23:44:18+00:00",
     "parameters": {
       "threshold": 0.5,
       "thresholds": [
