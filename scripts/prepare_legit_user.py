@@ -403,13 +403,74 @@ def apply_cap_review(path: Path, max_per_reg_domain: int) -> None:
     print(f"Ditulis: {path}")
 
 
+def merge_keep_suggestions(review_path: Path, suggestions_path: Path, doubtful_domains: set[str]) -> None:
+    """Isi kolom keep dari keep_suggestions.csv sesuai aturan pemilik."""
+    if not review_path.exists():
+        raise SystemExit(f"File tidak ditemukan: {review_path}")
+    if not suggestions_path.exists():
+        raise SystemExit(f"File tidak ditemukan: {suggestions_path}")
+
+    with review_path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = list(reader.fieldnames or [])
+        rows = [dict(row) for row in reader]
+
+    suggestions: dict[str, str] = {}
+    with suggestions_path.open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            url = normalize_url(row.get("url", ""))
+            if url:
+                suggestions[url] = (row.get("saran") or "").strip().lower()
+
+    matched = 0
+    unmatched = 0
+    for row in rows:
+        url = normalize_url(row.get("url", ""))
+        saran = suggestions.get(url)
+        if saran is None:
+            unmatched += 1
+            keep = "0"
+        else:
+            matched += 1
+            if saran == "ya":
+                keep = "1"
+            else:  # tidak / periksa / nilai lain -> 0
+                keep = "0"
+        # pengecualian domain ragu
+        reg = (row.get("reg_domain") or "").strip() or registered_domain(urlsplit(row.get("url", "")).hostname or "")
+        row["reg_domain"] = reg
+        if reg in doubtful_domains or (urlsplit(row.get("url", "")).hostname or "").lower() in doubtful_domains:
+            keep = "0"
+        row["keep"] = keep
+
+    if "reg_domain" not in fieldnames:
+        fieldnames = ["url", "reg_domain"] + [col for col in fieldnames if col != "url"]
+
+    review_path.parent.mkdir(parents=True, exist_ok=True)
+    with review_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in fieldnames})
+
+    keep_count = sum((row.get("keep") or "").strip() == "1" for row in rows)
+    print(f"Review: {len(rows)} baris")
+    print(f"Cocok dengan suggestions: {matched}; tidak cocok: {unmatched}")
+    print(f"keep=1: {keep_count}; keep=0: {len(rows) - keep_count}")
+    print(f"Ditulis: {review_path}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Siapkan set legitimate pribadi dari ekspor riwayat/bookmark")
     parser.add_argument("--input", default=str(DEFAULT_INPUT), help="file atau direktori ekspor")
     parser.add_argument("--output", default=str(DEFAULT_REVIEW), help="CSV review keluaran")
     parser.add_argument("--person-label", default="", help="label anonim (wajib di mode persiapan)")
     parser.add_argument("--max-per-host", type=int, default=5, help="maks URL per host")
-    parser.add_argument("--apply-cap", action="store_true", help="tambah reg_domain dan terapkan cap 5 per reg_domain pada review CSV")
+    parser.add_argument("--merge-keep", action="store_true", help="isi keep dari keep_suggestions.csv")
+    parser.add_argument("--suggestions", default=str(ROOT / "data" / "realworld" / "keep_suggestions.csv"), help="CSV saran keep")
+    parser.add_argument("--doubtful-domains", default="", help="domain ragu dipisah koma, atau 'tidak ada'")
+    parser.add_argument("--apply-cap", action="store_true", help="tambah reg_domain dan terapkan cap per reg_domain")
     parser.add_argument("--review", default=str(DEFAULT_REVIEW), help="CSV review untuk --apply-cap / mode split")
     parser.add_argument("--max-per-reg-domain", type=int, default=5, help="maks URL per reg_domain")
     parser.add_argument("--dev", default=str(DEFAULT_DEV), help="CSV dev keluaran")
@@ -417,6 +478,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--split", action="store_true", help="bagi legit_review.csv (keep=1) menjadi dev/final")
     parser.add_argument("--seed", type=int, default=42, help="seed split")
     args = parser.parse_args(argv)
+
+    if args.merge_keep:
+        doubtful = set()
+        if args.doubtful_domains.strip().lower() not in ("", "tidak ada", "none"):
+            doubtful = {item.strip().lower() for item in args.doubtful_domains.split(",") if item.strip()}
+        merge_keep_suggestions(Path(args.review), Path(args.suggestions), doubtful)
+        return 0
 
     if args.apply_cap:
         apply_cap_review(Path(args.review), args.max_per_reg_domain)

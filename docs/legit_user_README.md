@@ -46,7 +46,7 @@ allowlist); **tidak ada URL yang dicetak**.
 
 ## 3. Review manual
 
-Buka `data/realworld/legit_review.csv`, isi kolom `keep` dengan `1` (pertahankan)
+Kolom `keep` diisi dari `keep_suggestions.csv` (saran agent) plus persetujuan pemilik pada 2026-11-17.
 atau `0` (buang). Hanya URL yang benar-benar legitimate dan tidak sensitif yang
 diberi `1`. File ini gitignored; jangan commit.
 
