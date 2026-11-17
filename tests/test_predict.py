@@ -32,23 +32,29 @@ def test_ip_host_phishing_url():
     result = predict.predict_url(PHISHING_IP_URL)
     assert result["probability"] > 0.8
     assert result["label"] == LABEL_PHISH
-    assert result["label_name"] == "PHISHING"
+    assert result["label_name"] == "SUSPICIOUS"
+    assert result["verdict"] == "SUSPICIOUS"
+    assert result["risk_level"] == "tinggi"
+    assert result["decision_source"] == "model"
 
 
 def test_wikipedia_is_legitimate():
     result = predict.predict_url(LEGIT_URL)
     assert result["verdict"] == "LEGITIMATE"
     assert result["decision_source"] == "allowlist"
+    assert result["risk_level"] == "rendah"
     assert result["probability"] is None
     assert result["top_features"] == []
     assert result["label"] == LABEL_LEGIT
     assert result["label_name"] == "LEGITIMATE"
+    assert [item["layer"] for item in result["trail"]] == ["denylist", "allowlist"]
 
 
 def test_model_path_legitimate_url():
     result = predict.predict_url("https://www.bbc.com")
     assert result["verdict"] == "LEGITIMATE"
     assert result["decision_source"] == "model"
+    assert result["risk_level"] == "rendah"
     assert result["probability"] is not None
     assert result["probability"] < 0.2
     assert result["label"] == LABEL_LEGIT
@@ -95,10 +101,83 @@ def test_unicode_url_does_not_crash():
 
 def test_short_normal_url_output_contract():
     result = predict.predict_url("https://example.com")
-    assert set(result) == {"url", "label", "label_name", "verdict", "probability", "inference_ms", "top_features", "decision_source", "reason"}
+    assert set(result) == {
+        "url",
+        "label",
+        "label_name",
+        "verdict",
+        "risk_level",
+        "probability",
+        "inference_ms",
+        "top_features",
+        "decision_source",
+        "reason",
+        "trail",
+    }
     assert result["url"] == "https://example.com"
     assert result["label"] == (LABEL_PHISH if result["probability"] >= THRESHOLD else LABEL_LEGIT)
-    assert result["label_name"] in {"PHISHING", "LEGITIMATE"}
+    assert result["label_name"] in {"PHISHING", "SUSPICIOUS", "LEGITIMATE"}
+    assert result["risk_level"] in {"tinggi", "sedang", "rendah"}
+
+
+def test_trail_contract():
+    result = predict.predict_url("https://www.bbc.com")
+    assert [item["layer"] for item in result["trail"]] == [
+        "denylist",
+        "allowlist",
+        "model_b",
+        "model_c",
+        "shortener",
+    ]
+    for item in result["trail"]:
+        assert set(item) == {"layer", "result", "detail"}
+        assert item["detail"]
+
+
+def test_no_phishing_verdict_from_models():
+    for url in (PHISHING_IP_URL, "https://bit.ly/abc123", "http://example.com/login?id=1"):
+        assert predict.predict_url(url)["verdict"] != "PHISHING"
+
+
+def test_shortener_trail_marks_cocok():
+    result = predict.predict_url("https://bit.ly/abc123")
+    entry = next(item for item in result["trail"] if item["layer"] == "shortener")
+    assert entry["result"] == "cocok"
+    assert result["verdict"] == "SUSPICIOUS"
+
+
+def test_model_c_missing_falls_back_to_model_b(monkeypatch):
+    monkeypatch.setattr(predict, "_MODEL_C", None)
+    monkeypatch.setattr(predict, "_MODEL_C_TRIED", True)
+    result = predict.predict_url(PHISHING_IP_URL)
+    assert result["verdict"] == "SUSPICIOUS"
+    assert result["risk_level"] == "tinggi"
+    entry = next(item for item in result["trail"] if item["layer"] == "model_c")
+    assert entry["result"] == "tidak tersedia"
+
+
+def test_model_c_load_is_safe_when_artifact_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(predict, "MODEL_C_PATH", tmp_path / "tidak-ada.pkl")
+    monkeypatch.setattr(predict, "TLD_PROBS_HOST_PATH", tmp_path / "tidak-ada.json")
+    monkeypatch.setattr(predict, "_MODEL_C", None)
+    monkeypatch.setattr(predict, "_MODEL_C_TRIED", False)
+    assert predict._load_model_c() is None
+
+
+def test_band_and_decide_rules():
+    assert predict._band(0.70) == "tinggi"
+    assert predict._band(0.50) == "sedang"
+    assert predict._band(0.30) == "rendah"
+
+    assert predict._decide(0.90, 0.80, False)[:2] == ("SUSPICIOUS", "tinggi")
+    assert predict._decide(0.10, 0.20, False)[:2] == ("LEGITIMATE", "rendah")
+    verdict, risk, source, reason = predict._decide(0.90, 0.20, False)
+    assert (verdict, risk, source) == ("SUSPICIOUS", "sedang", "model")
+    assert "tidak dapat memastikan" in reason
+    assert predict._decide(0.90, 0.80, True)[:2] == ("SUSPICIOUS", "tinggi")
+    assert predict._decide(0.10, 0.20, True)[:3] == ("SUSPICIOUS", "sedang", "shortener")
+    assert predict._decide(0.10, None, False)[:2] == ("LEGITIMATE", "rendah")
+    assert predict._decide(0.90, None, False)[:2] == ("SUSPICIOUS", "tinggi")
 
 
 def test_top_features_contract():
@@ -132,6 +211,7 @@ def test_predict_url_is_deterministic():
     assert first["probability"] == second["probability"]
     assert first["label"] == second["label"]
     assert first["top_features"] == second["top_features"]
+    assert first["trail"] == second["trail"]
 
 
 def test_allowlist_github():
@@ -148,13 +228,6 @@ def test_vercel_user_content_not_allowlisted():
     assert is_user_content("phishing-test.vercel.app")
     result = predict.predict_url("https://phishing-test.vercel.app/login")
     assert result["decision_source"] != "allowlist"
-
-
-def test_classify_thresholds():
-    assert predict._classify(0.70, False)[0] == "PHISHING"
-    assert predict._classify(0.50, False)[0] == "SUSPICIOUS"
-    assert predict._classify(0.30, False)[0] == "LEGITIMATE"
-    assert predict._classify(0.90, True)[1] == "allowlist"
 
 
 def test_missing_stats_keeps_prediction_working(monkeypatch, tmp_path):

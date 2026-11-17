@@ -38,6 +38,34 @@ FEATURE_LABELS = {
 BOOL_FEATURES = {"IsDomainIP", "IsHTTPS", "HasObfuscation"}
 IMPACT_DIR = {"meningkatkan risiko": "up", "menurunkan risiko": "down"}
 
+# Warna baris trail menurut hasil lapisan (ikon dinamis tidak didukung Reflex 0.11).
+TRAIL_COLORS = {
+    "tinggi": t.RED,
+    "sedang": t.YELLOW,
+    "rendah": t.GREEN,
+    "cocok": t.GREEN,
+    "tidak cocok": t.MUTED,
+    "dilewati": t.MUTED,
+    "tidak tersedia": t.MUTED,
+}
+RISK_LABELS = {"tinggi": "Risiko tinggi", "sedang": "Risiko sedang", "rendah": "Risiko rendah"}
+
+
+def build_trail_rows(items: list[dict]) -> list[dict]:
+    """Ubah trail API menjadi baris tampilan (warna status ditentukan di server)."""
+    rows = []
+    for item in items or []:
+        result = str(item.get("result", ""))
+        rows.append(
+            {
+                "layer": str(item.get("layer", "")),
+                "result": result,
+                "detail": str(item.get("detail", "")),
+                "color": TRAIL_COLORS.get(result, t.MUTED),
+            }
+        )
+    return rows
+
 
 def build_feature_rows(items: list[dict]) -> list[dict]:
     """Ubah top_features API menjadi baris tampilan (label, nilai teks, arah dampak)."""
@@ -72,6 +100,7 @@ class State(rx.State):
     submitted_url: str = ""
     label_name: str = ""
     verdict: str = ""
+    risk_level: str = ""
     probability_pct: str = ""
     bar_width: str = "0%"
     prob_data: list[dict] = []
@@ -79,6 +108,24 @@ class State(rx.State):
     top_features: list[dict] = []
     decision_source: str = ""
     reason: str = ""
+    trail: list[dict] = []
+
+    @rx.var
+    def risk_label(self) -> str:
+        return RISK_LABELS.get(self.risk_level, "")
+
+    @rx.var
+    def risk_color(self) -> str:
+        return {"tinggi": t.RED, "sedang": t.YELLOW, "rendah": t.GREEN}.get(self.risk_level, t.MUTED)
+
+    @rx.var
+    def verdict_note(self) -> str:
+        if self.label_name == "SUSPICIOUS":
+            return (
+                "Model tidak dapat memastikan URL ini aman atau phishing. "
+                "Periksa sendiri sebelum membuka atau memasukkan data."
+            )
+        return self.reason
 
     @rx.var
     def is_phishing(self) -> bool:
@@ -135,8 +182,10 @@ class State(rx.State):
             self.submitted_url = target
             self.label_name = str(body.get("label_name", ""))
             self.verdict = str(body.get("verdict", ""))
+            self.risk_level = str(body.get("risk_level", ""))
             self.decision_source = str(body.get("decision_source", ""))
             self.reason = str(body.get("reason", ""))
+            self.trail = build_trail_rows(body.get("trail") or [])
             if probability_raw is None:
                 self.probability_pct = "—"
                 self.bar_width = "0%"

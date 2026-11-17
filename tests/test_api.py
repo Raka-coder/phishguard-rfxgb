@@ -23,12 +23,26 @@ def test_check_legitimate_200():
     assert body["label"] == 1
     assert body["label_name"] == "LEGITIMATE"
     assert body["verdict"] == "LEGITIMATE"
+    assert body["risk_level"] == "rendah"
     assert body["decision_source"] == "allowlist"
     assert body["probability"] is None
     assert body["top_features"] == []
+    assert [item["layer"] for item in body["trail"]] == ["denylist", "allowlist"]
     assert isinstance(body["reason"], str)
     assert isinstance(body["inference_ms"], (int, float))
-    assert set(body) == {"url", "label", "label_name", "verdict", "probability", "inference_ms", "top_features", "decision_source", "reason"}
+    assert set(body) == {
+        "url",
+        "label",
+        "label_name",
+        "verdict",
+        "risk_level",
+        "probability",
+        "inference_ms",
+        "top_features",
+        "decision_source",
+        "reason",
+        "trail",
+    }
 
 
 def test_check_model_path_legitimate_200():
@@ -37,23 +51,45 @@ def test_check_model_path_legitimate_200():
     body = response.json()
     assert body["label_name"] == "LEGITIMATE"
     assert body["verdict"] == "LEGITIMATE"
+    assert body["risk_level"] == "rendah"
     assert body["decision_source"] == "model"
     assert body["probability"] is not None
     assert 0 <= body["probability"] <= 1
 
 
-def test_check_phishing_200():
+def test_check_suspicious_200():
     response = client.post("/check", json={"url": PHISHING_IP_URL})
     assert response.status_code == 200
     body = response.json()
     assert body["label"] == 0
-    assert body["label_name"] == "PHISHING"
-    assert body["verdict"] == "PHISHING"
+    assert body["label_name"] == "SUSPICIOUS"
+    assert body["verdict"] == "SUSPICIOUS"
+    assert body["risk_level"] == "tinggi"
     assert body["decision_source"] == "model"
     assert body["probability"] > 0.8
     assert 0 <= body["probability"] <= 1
     assert isinstance(body["reason"], str)
     assert isinstance(body["inference_ms"], (int, float))
+
+
+def test_trail_entries_shape():
+    body = client.post("/check", json={"url": PHISHING_IP_URL}).json()
+    assert [item["layer"] for item in body["trail"]] == [
+        "denylist",
+        "allowlist",
+        "model_b",
+        "model_c",
+        "shortener",
+    ]
+    for item in body["trail"]:
+        assert set(item) == {"layer", "result", "detail"}
+        assert isinstance(item["result"], str)
+        assert isinstance(item["detail"], str)
+
+
+def test_model_never_returns_phishing():
+    for url in (PHISHING_IP_URL, "https://bit.ly/abc123", "https://www.bbc.com"):
+        assert client.post("/check", json={"url": url}).json()["verdict"] != "PHISHING"
 
 
 def test_check_top_features_shape():

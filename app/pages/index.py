@@ -7,7 +7,7 @@ from app.app_state import State
 from app.components import card, card_title, muted, page_shell
 
 EXAMPLES = [
-    ("Coba contoh phishing", "http://192.168.0.1/paypal-login-verify.xyz"),
+    ("Coba contoh mencurigakan", "http://192.168.0.1/paypal-login-verify.xyz"),
     ("Coba contoh legit", "https://www.wikipedia.org"),
 ]
 MONO = {"font_family": t.MONO_FONT}
@@ -145,8 +145,12 @@ def verdict_card() -> rx.Component:
                     State.label_name,
                     style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
                 ),
-                muted(State.reason),
+                muted(State.verdict_note),
                 rx.hstack(
+                    rx.badge(
+                        State.risk_label,
+                        style={"background": State.risk_color, "color": t.WHITE, "border_radius": "0", "font_weight": "700"},
+                    ),
                     rx.badge(State.decision_source, color_scheme="gray", variant="soft"),
                     spacing="2",
                 ),
@@ -174,7 +178,7 @@ def verdict_card() -> rx.Component:
 
 def probability_card() -> rx.Component:
     return card(
-        card_title("activity", "Peluang phishing"),
+        card_title("activity", "Peluang phishing (Model B)"),
         rx.cond(
             State.probability_pct != "—",
             rx.box(
@@ -224,7 +228,7 @@ def probability_card() -> rx.Component:
                 spacing="1",
             ),
             rx.spacer(),
-            muted("Ambang keputusan 50%", size="1"),
+            muted("Skor Model B; ambang label 50%", size="1"),
             width="100%",
         ),
     )
@@ -301,6 +305,64 @@ def features_card() -> rx.Component:
     )
 
 
+def render_trail(item: rx.Var[dict]) -> rx.Component:
+    return rx.box(
+        rx.flex(
+            rx.box(
+                style={
+                    "width": "10px",
+                    "height": "10px",
+                    "background": item["color"],
+                    "flex_shrink": "0",
+                    "margin_top": "8px",
+                }
+            ),
+            rx.vstack(
+                rx.hstack(
+                    rx.text(item["layer"], size="1", style={**MONO, "color": t.MUTED}),
+                    rx.badge(
+                        item["result"],
+                        style={
+                            "background": item["color"],
+                            "color": t.WHITE,
+                            "border_radius": "0",
+                            "white_space": "nowrap",
+                        },
+                    ),
+                    align="center",
+                    spacing="2",
+                    wrap="wrap",
+                ),
+                muted(item["detail"], size="2"),
+                spacing="1",
+                align="start",
+                style={"min_width": "0"},
+            ),
+            align="start",
+            gap="3",
+        ),
+        style={
+            "background": t.CARD_2,
+            "border": f"1px solid {t.LINE}",
+            "border_radius": "0",
+            "padding": "10px 12px",
+            "width": "100%",
+        },
+    )
+
+
+def trail_card() -> rx.Component:
+    return card(
+        card_title("route", "Jejak keputusan"),
+        muted(
+            "Lapisan diperiksa berurutan dari atas. Skor model ditampilkan apa adanya, "
+            "dan SUSPICIOUS berarti model tidak dapat memastikan.",
+            style={"margin_top": "6px", "margin_bottom": "14px"},
+        ),
+        rx.vstack(rx.foreach(State.trail, render_trail), spacing="2", width="100%"),
+    )
+
+
 def results_view() -> rx.Component:
     return rx.vstack(
         rx.grid(
@@ -311,6 +373,7 @@ def results_view() -> rx.Component:
             spacing="4",
             width="100%",
         ),
+        trail_card(),
         features_card(),
         spacing="4",
         width="100%",

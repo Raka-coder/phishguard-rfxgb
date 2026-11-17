@@ -35,16 +35,24 @@ class TopFeature(BaseModel):
     impact: str
 
 
+class TrailEntry(BaseModel):
+    layer: str
+    result: str
+    detail: str
+
+
 class CheckResponse(BaseModel):
     url: str
     label: int
     label_name: str
     verdict: str
+    risk_level: str
     probability: float | None
     inference_ms: float
     top_features: list[TopFeature]
     decision_source: str
     reason: str
+    trail: list[TrailEntry]
 
 
 class HealthResponse(BaseModel):

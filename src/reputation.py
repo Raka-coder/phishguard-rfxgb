@@ -1,9 +1,8 @@
-"""Reputasi offline (allowlist kurasi) - tanpa jaringan, tanpa Whois/DNS.
+"""Reputasi offline: allowlist kurasi, suffix user-content, dan daftar shortener.
 
-Lapisan online (PhishTank denylist, whois domain-age) adalah future work dan akan
-ditambahkan sebagai lapisan SEBELUM allowlist. Struktur `decision_source` pada
-`predict_url` sudah menyediakan nilai "denylist" dan "domain_age" untuk itu;
-saat ini hanya "allowlist", "model", dan "uncertainty" yang dipakai.
+Tanpa jaringan, tanpa Whois/DNS. Lapisan denylist feed (T19) belum ada; bila
+ditambahkan, ia dievaluasi SEBELUM allowlist dengan `decision_source="denylist"`.
+Saat ini `predict_url` memakai "allowlist", "model", dan "shortener".
 """
 
 import json
