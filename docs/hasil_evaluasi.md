@@ -8,6 +8,8 @@
   train 188636). Test set tidak dipakai saat training.
 - Definisi: **FP** = aktual legit (1) diprediksi phishing (0); **FN** = aktual phishing (0) diprediksi legit (1).
   Semua metrik phishing memakai `pos_label=0`.
+- Label pada contoh FP/FN di bawah berasal dari dataset PhiUSIIL dan **belum diverifikasi
+  independen**; sebutan "phishing" mengikuti label dataset, bukan penilaian manual domain nyata.
 
 ## Tabel metrik (test set)
 
@@ -105,21 +107,22 @@ Total **122** baris (122 URL unik); 10 contoh teratas ditampilkan.
 
 ## Uji Live (T11) — catatan
 
-Status: korpus di `tests/fixtures/urls.txt` masih berisi **placeholder** (ditandai
-`# PHISHTANK-PLACEHOLDER:`). Tabel hasil final menunggu owner mengganti URL
-dengan URL PhishTank terverifikasi + screenshot di `docs/screenshots/`.
+Status: korpus di `tests/fixtures/urls.txt` berisi **contoh sintetis** berlabel
+(bukan URL phishing nyata dari feed). Tabel hasil final untuk data dunia nyata
+ada di `docs/realworld.json` dan `docs/t25.json`, dibuat mengikuti
+`docs/realworld_README.md`.
 
-Temuan dari run placeholder (bukan data PhishTank final):
+Temuan dari run contoh sintetis (bukan data feed final):
 
 - `https://github.com` diskor **PHISHING 0.9987** (false positive). Hipotesis:
   URL pendek (18 karakter) + sedikit simbol membuat fitur leksikal mirip
   URL phishing pendek yang ada di dataset; dominasi `IsHTTPS` tidak cukup
   menurunkan skor karena fitur panjang/jumlah simbol mendominasi arah.
   Dengan lapisan allowlist (T14), `github.com` sekarang langsung `LEGITIMATE`.
-- URL placeholder phishing (tanpa HTTPS / IP host) semuanya diskor 1.0000
-  (sesuai pola `IsHTTPS=0` dan `IsDomainIP=1`).
+- Contoh phishing sintetis (tanpa HTTPS / IP host) diskor tinggi (sesuai pola
+  `IsHTTPS=0` dan `IsDomainIP=1`).
 - URL legitim panjang (`wikipedia.org`, `python.org`, `bri.co.id`, `kompas.com`)
   diskor < 0.003 — konsisten dengan pola training.
 
-Lihat `docs/screenshots/` (index-legit.png, index-phishing.png, index-features.png,
-evaluasi.png) untuk tampilan UI.
+Tampilan UI tidak disimpan sebagai screenshot statis di repo; jalankan aplikasi
+untuk melihat versi terbaru (lihat README, bagian "Clone bersih").

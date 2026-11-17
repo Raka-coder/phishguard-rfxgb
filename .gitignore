@@ -27,12 +27,13 @@ state.json
 .env.local
 kaggle.json
 
-# artefak model — dibuat ulang oleh src/train.py
+# artefak model: hanya yang dibutuhkan aplikasi yang di-commit
+# (model_full.pkl tetap dibuat ulang oleh src/train.py)
 src/*.pkl
-src/tld_probs.json
-
-# artefak eksperimen (T24) — dibuat ulang oleh scripts/train_model_c.py
-models/experimental/
+!src/model.pkl
+models/experimental/*
+!models/experimental/C_host.pkl
+!models/experimental/tld_probs_host.json
 
 # tooling lokal (knowledge graph agent)
 .megamemory/
