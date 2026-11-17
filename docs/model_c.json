@@ -1,0 +1,836 @@
+{
+  "generated_at": "2026-11-17T04:41:18+00:00",
+  "purpose": "Membandingkan Model B dengan model host-only pada split berkelompok per host.",
+  "parameters": {
+    "seed": 42,
+    "test_size": 0.2,
+    "threshold": 0.5,
+    "positive_class": "phishing (label 0)",
+    "cv_folds": 5,
+    "split": "GroupShuffleSplit per host, 80/20",
+    "cv": "StratifiedGroupKFold per host di train",
+    "hyperparameters": {
+      "n_estimators": 400,
+      "learning_rate": 0.1,
+      "max_depth": 6,
+      "tree_method": "hist",
+      "n_jobs": -1,
+      "random_state": 42,
+      "eval_metric": "logloss"
+    }
+  },
+  "data": {
+    "source": "PhiUSIIL.parquet",
+    "raw_rows": 235795,
+    "rows_after_dedup": 235370,
+    "duplicate_url_rows_removed": 425,
+    "unique_hosts": 220077,
+    "labels": {
+      "legit": 134850,
+      "phishing": 100520
+    }
+  },
+  "split": {
+    "train_rows": 187856,
+    "test_rows": 47514,
+    "test_rows_pct": 20.19,
+    "train_hosts": 176061,
+    "test_hosts": 44016,
+    "host_overlap": 0,
+    "train_labels": {
+      "legit": 107828,
+      "phishing": 80028
+    },
+    "test_labels": {
+      "legit": 27022,
+      "phishing": 20492
+    }
+  },
+  "tld_probability": {
+    "new": {
+      "source": "TLD dari host (src/features_host.py:tld_of_host), split train",
+      "formula": "(jumlah legit per TLD + 1) / (jumlah total per TLD + 2)",
+      "default_formula": "(jumlah legit train + 1) / (jumlah baris train + 2)",
+      "n_tlds": 642,
+      "default": 0.573992,
+      "test_rows_covered_pct": 99.64,
+      "train_values": "out-of-fold dari 5 fold berkelompok",
+      "test_values": "tabel dari seluruh train"
+    },
+    "old": {
+      "available": true,
+      "path": "tld_probs.json",
+      "n_tlds": 12597,
+      "keys_with_path_fragment": 10683,
+      "default": 0.571894,
+      "test_rows_covered_pct": 99.59,
+      "note": "Dibuat src/train.py:95 dengan rsplit pada URL penuh, sehingga sebagian besar kunci mengandung fragmen path dan tidak pernah cocok saat inference (TLD dari host)."
+    }
+  },
+  "variants": {
+    "B_refit": {
+      "source": "url",
+      "drop": [],
+      "features": [
+        "URLLength",
+        "DomainLength",
+        "TLDLength",
+        "NoOfSubDomain",
+        "IsDomainIP",
+        "IsHTTPS",
+        "NoOfLettersInURL",
+        "LetterRatioInURL",
+        "NoOfDegitsInURL",
+        "DegitRatioInURL",
+        "NoOfEqualsInURL",
+        "NoOfQMarkInURL",
+        "NoOfAmpersandInURL",
+        "NoOfOtherSpecialCharsInURL",
+        "SpacialCharRatioInURL",
+        "HasObfuscation",
+        "NoOfObfuscatedChar",
+        "ObfuscationRatio",
+        "TLDLegitimateProb"
+      ],
+      "n_features": 19,
+      "hyperparameters": {
+        "n_estimators": 400,
+        "learning_rate": 0.1,
+        "max_depth": 6,
+        "tree_method": "hist",
+        "n_jobs": -1,
+        "random_state": 42,
+        "eval_metric": "logloss"
+      },
+      "cv_grouped": {
+        "f1_phishing_mean": 0.9961,
+        "mcc_mean": 0.9931,
+        "roc_auc_mean": 0.9987,
+        "folds": [
+          {
+            "n": 37572,
+            "tp": 15920,
+            "fp": 24,
+            "fn": 86,
+            "tn": 21542,
+            "precision": 0.9985,
+            "recall": 0.9946,
+            "f1": 0.9966,
+            "specificity": 0.9989,
+            "mcc": 0.994,
+            "roc_auc": 0.9989
+          },
+          {
+            "n": 37572,
+            "tp": 15903,
+            "fp": 23,
+            "fn": 103,
+            "tn": 21543,
+            "precision": 0.9986,
+            "recall": 0.9936,
+            "f1": 0.9961,
+            "specificity": 0.9989,
+            "mcc": 0.9931,
+            "roc_auc": 0.9989
+          },
+          {
+            "n": 37572,
+            "tp": 15889,
+            "fp": 25,
+            "fn": 117,
+            "tn": 21541,
+            "precision": 0.9984,
+            "recall": 0.9927,
+            "f1": 0.9956,
+            "specificity": 0.9988,
+            "mcc": 0.9923,
+            "roc_auc": 0.9985
+          },
+          {
+            "n": 37570,
+            "tp": 15910,
+            "fp": 29,
+            "fn": 95,
+            "tn": 21536,
+            "precision": 0.9982,
+            "recall": 0.9941,
+            "f1": 0.9961,
+            "specificity": 0.9987,
+            "mcc": 0.9933,
+            "roc_auc": 0.9989
+          },
+          {
+            "n": 37570,
+            "tp": 15897,
+            "fp": 21,
+            "fn": 108,
+            "tn": 21544,
+            "precision": 0.9987,
+            "recall": 0.9933,
+            "f1": 0.996,
+            "specificity": 0.999,
+            "mcc": 0.993,
+            "roc_auc": 0.9985
+          }
+        ]
+      },
+      "test_grouped": {
+        "n": 47514,
+        "tp": 20374,
+        "fp": 24,
+        "fn": 118,
+        "tn": 26998,
+        "precision": 0.9988,
+        "recall": 0.9942,
+        "f1": 0.9965,
+        "specificity": 0.9991,
+        "balanced_accuracy": 0.9967,
+        "mcc": 0.9939,
+        "fp_rate": 0.0009,
+        "fp_rate_ci95": {
+          "low": 0.0006,
+          "high": 0.0013
+        },
+        "recall_ci95": {
+          "low": 0.9931,
+          "high": 0.9952
+        },
+        "predicted_phishing_pct": 42.93,
+        "roc_auc": 0.9988
+      },
+      "train_seconds": {
+        "cv": 25.5,
+        "final_fit": 6.1
+      },
+      "artifact": "models/experimental/B_refit.pkl"
+    },
+    "B_noHTTPS": {
+      "source": "url",
+      "drop": [
+        "IsHTTPS"
+      ],
+      "features": [
+        "URLLength",
+        "DomainLength",
+        "TLDLength",
+        "NoOfSubDomain",
+        "IsDomainIP",
+        "NoOfLettersInURL",
+        "LetterRatioInURL",
+        "NoOfDegitsInURL",
+        "DegitRatioInURL",
+        "NoOfEqualsInURL",
+        "NoOfQMarkInURL",
+        "NoOfAmpersandInURL",
+        "NoOfOtherSpecialCharsInURL",
+        "SpacialCharRatioInURL",
+        "HasObfuscation",
+        "NoOfObfuscatedChar",
+        "ObfuscationRatio",
+        "TLDLegitimateProb"
+      ],
+      "n_features": 18,
+      "hyperparameters": {
+        "n_estimators": 400,
+        "learning_rate": 0.1,
+        "max_depth": 6,
+        "tree_method": "hist",
+        "n_jobs": -1,
+        "random_state": 42,
+        "eval_metric": "logloss"
+      },
+      "cv_grouped": {
+        "f1_phishing_mean": 0.9908,
+        "mcc_mean": 0.984,
+        "roc_auc_mean": 0.9986,
+        "folds": [
+          {
+            "n": 37572,
+            "tp": 15829,
+            "fp": 100,
+            "fn": 177,
+            "tn": 21466,
+            "precision": 0.9937,
+            "recall": 0.9889,
+            "f1": 0.9913,
+            "specificity": 0.9954,
+            "mcc": 0.9849,
+            "roc_auc": 0.9987
+          },
+          {
+            "n": 37572,
+            "tp": 15804,
+            "fp": 76,
+            "fn": 202,
+            "tn": 21490,
+            "precision": 0.9952,
+            "recall": 0.9874,
+            "f1": 0.9913,
+            "specificity": 0.9965,
+            "mcc": 0.9849,
+            "roc_auc": 0.9986
+          },
+          {
+            "n": 37572,
+            "tp": 15785,
+            "fp": 105,
+            "fn": 221,
+            "tn": 21461,
+            "precision": 0.9934,
+            "recall": 0.9862,
+            "f1": 0.9898,
+            "specificity": 0.9951,
+            "mcc": 0.9823,
+            "roc_auc": 0.9986
+          },
+          {
+            "n": 37570,
+            "tp": 15806,
+            "fp": 101,
+            "fn": 199,
+            "tn": 21464,
+            "precision": 0.9937,
+            "recall": 0.9876,
+            "f1": 0.9906,
+            "specificity": 0.9953,
+            "mcc": 0.9837,
+            "roc_auc": 0.9987
+          },
+          {
+            "n": 37570,
+            "tp": 15806,
+            "fp": 87,
+            "fn": 199,
+            "tn": 21478,
+            "precision": 0.9945,
+            "recall": 0.9876,
+            "f1": 0.991,
+            "specificity": 0.996,
+            "mcc": 0.9844,
+            "roc_auc": 0.9985
+          }
+        ]
+      },
+      "test_grouped": {
+        "n": 47514,
+        "tp": 20233,
+        "fp": 99,
+        "fn": 259,
+        "tn": 26923,
+        "precision": 0.9951,
+        "recall": 0.9874,
+        "f1": 0.9912,
+        "specificity": 0.9963,
+        "balanced_accuracy": 0.9919,
+        "mcc": 0.9846,
+        "fp_rate": 0.0037,
+        "fp_rate_ci95": {
+          "low": 0.003,
+          "high": 0.0045
+        },
+        "recall_ci95": {
+          "low": 0.9857,
+          "high": 0.9888
+        },
+        "predicted_phishing_pct": 42.79,
+        "roc_auc": 0.9986
+      },
+      "train_seconds": {
+        "cv": 24.9,
+        "final_fit": 6.0
+      },
+      "artifact": "models/experimental/B_noHTTPS.pkl"
+    },
+    "C_host": {
+      "source": "host",
+      "drop": [],
+      "features": [
+        "HostLength",
+        "HostLetterCount",
+        "HostDigitCount",
+        "HostSpecialCount",
+        "HostLetterRatio",
+        "HostDigitRatio",
+        "NoOfSubDomain",
+        "TLDLength",
+        "IsDomainIP",
+        "TLDLegitimateProb"
+      ],
+      "n_features": 10,
+      "hyperparameters": {
+        "n_estimators": 400,
+        "learning_rate": 0.1,
+        "max_depth": 6,
+        "tree_method": "hist",
+        "n_jobs": -1,
+        "random_state": 42,
+        "eval_metric": "logloss"
+      },
+      "cv_grouped": {
+        "f1_phishing_mean": 0.8172,
+        "mcc_mean": 0.7252,
+        "roc_auc_mean": 0.9079,
+        "folds": [
+          {
+            "n": 37572,
+            "tp": 11889,
+            "fp": 739,
+            "fn": 4117,
+            "tn": 20827,
+            "precision": 0.9415,
+            "recall": 0.7428,
+            "f1": 0.8304,
+            "specificity": 0.9657,
+            "mcc": 0.7417,
+            "roc_auc": 0.9127
+          },
+          {
+            "n": 37572,
+            "tp": 11428,
+            "fp": 781,
+            "fn": 4578,
+            "tn": 20785,
+            "precision": 0.936,
+            "recall": 0.714,
+            "f1": 0.8101,
+            "specificity": 0.9638,
+            "mcc": 0.7156,
+            "roc_auc": 0.9054
+          },
+          {
+            "n": 37572,
+            "tp": 11590,
+            "fp": 768,
+            "fn": 4416,
+            "tn": 20798,
+            "precision": 0.9379,
+            "recall": 0.7241,
+            "f1": 0.8172,
+            "specificity": 0.9644,
+            "mcc": 0.7247,
+            "roc_auc": 0.9048
+          },
+          {
+            "n": 37570,
+            "tp": 11580,
+            "fp": 700,
+            "fn": 4425,
+            "tn": 20865,
+            "precision": 0.943,
+            "recall": 0.7235,
+            "f1": 0.8188,
+            "specificity": 0.9675,
+            "mcc": 0.7285,
+            "roc_auc": 0.9112
+          },
+          {
+            "n": 37570,
+            "tp": 11389,
+            "fp": 751,
+            "fn": 4616,
+            "tn": 20814,
+            "precision": 0.9381,
+            "recall": 0.7116,
+            "f1": 0.8093,
+            "specificity": 0.9652,
+            "mcc": 0.7156,
+            "roc_auc": 0.9055
+          }
+        ]
+      },
+      "test_grouped": {
+        "n": 47514,
+        "tp": 14615,
+        "fp": 1822,
+        "fn": 5877,
+        "tn": 25200,
+        "precision": 0.8892,
+        "recall": 0.7132,
+        "f1": 0.7915,
+        "specificity": 0.9326,
+        "balanced_accuracy": 0.8229,
+        "mcc": 0.6724,
+        "fp_rate": 0.0674,
+        "fp_rate_ci95": {
+          "low": 0.0645,
+          "high": 0.0705
+        },
+        "recall_ci95": {
+          "low": 0.707,
+          "high": 0.7194
+        },
+        "predicted_phishing_pct": 34.59,
+        "roc_auc": 0.8817
+      },
+      "train_seconds": {
+        "cv": 20.5,
+        "final_fit": 4.8
+      },
+      "artifact": "models/experimental/C_host.pkl"
+    }
+  },
+  "selection": {
+    "selected": "B_refit",
+    "ranking": [
+      "B_refit",
+      "B_noHTTPS",
+      "C_host"
+    ],
+    "criterion": "F1 phishing rata-rata CV train berkelompok (tie-break MCC); test berkelompok dan set T18 tidak dipakai memilih"
+  },
+  "evaluation": {
+    "realworld": {
+      "source": "data/realworld/urls.csv (set T18)",
+      "n_urls": 355,
+      "n_legit": 55,
+      "n_phishing": 300,
+      "in_allowlist": 25,
+      "note": "Skor model mentah tanpa lapisan allowlist/uncertainty, memakai tabel TLD host baru untuk semua varian (termasuk B_refit); T18 tidak dipakai memilih varian.",
+      "groups": {
+        "full": {
+          "n": 355,
+          "n_legit": 55,
+          "n_phishing": 300
+        },
+        "not_in_allowlist": {
+          "n": 330,
+          "n_legit": 30,
+          "n_phishing": 300
+        }
+      },
+      "variants": {
+        "B_refit": {
+          "score_mean": 0.9799,
+          "score_median": 1.0,
+          "groups": {
+            "full": {
+              "n": 355,
+              "tp": 300,
+              "fp": 50,
+              "fn": 0,
+              "tn": 5,
+              "precision": 0.8571,
+              "recall": 1.0,
+              "f1": 0.9231,
+              "specificity": 0.0909,
+              "balanced_accuracy": 0.5454,
+              "mcc": 0.2791,
+              "fp_rate": 0.9091,
+              "fp_rate_ci95": {
+                "low": 0.8042,
+                "high": 0.9605
+              },
+              "recall_ci95": {
+                "low": 0.9874,
+                "high": 1.0
+              },
+              "predicted_phishing_pct": 98.59,
+              "roc_auc": 0.5903,
+              "specificity_ci95": {
+                "low": 0.0395,
+                "high": 0.1958
+              }
+            },
+            "not_in_allowlist": {
+              "n": 330,
+              "tp": 300,
+              "fp": 26,
+              "fn": 0,
+              "tn": 4,
+              "precision": 0.9202,
+              "recall": 1.0,
+              "f1": 0.9585,
+              "specificity": 0.1333,
+              "balanced_accuracy": 0.5666,
+              "mcc": 0.3503,
+              "fp_rate": 0.8667,
+              "fp_rate_ci95": {
+                "low": 0.7032,
+                "high": 0.9469
+              },
+              "recall_ci95": {
+                "low": 0.9874,
+                "high": 1.0
+              },
+              "predicted_phishing_pct": 98.79,
+              "roc_auc": 0.6742,
+              "specificity_ci95": {
+                "low": 0.0531,
+                "high": 0.2968
+              }
+            }
+          }
+        },
+        "B_noHTTPS": {
+          "score_mean": 0.9777,
+          "score_median": 1.0,
+          "groups": {
+            "full": {
+              "n": 355,
+              "tp": 296,
+              "fp": 52,
+              "fn": 4,
+              "tn": 3,
+              "precision": 0.8506,
+              "recall": 0.9867,
+              "f1": 0.9136,
+              "specificity": 0.0545,
+              "balanced_accuracy": 0.5206,
+              "mcc": 0.1073,
+              "fp_rate": 0.9455,
+              "fp_rate_ci95": {
+                "low": 0.8515,
+                "high": 0.9813
+              },
+              "recall_ci95": {
+                "low": 0.9662,
+                "high": 0.9948
+              },
+              "predicted_phishing_pct": 98.03,
+              "roc_auc": 0.5619,
+              "specificity_ci95": {
+                "low": 0.0187,
+                "high": 0.1485
+              }
+            },
+            "not_in_allowlist": {
+              "n": 330,
+              "tp": 296,
+              "fp": 28,
+              "fn": 4,
+              "tn": 2,
+              "precision": 0.9136,
+              "recall": 0.9867,
+              "f1": 0.9487,
+              "specificity": 0.0667,
+              "balanced_accuracy": 0.5267,
+              "mcc": 0.1148,
+              "fp_rate": 0.9333,
+              "fp_rate_ci95": {
+                "low": 0.7868,
+                "high": 0.9815
+              },
+              "recall_ci95": {
+                "low": 0.9662,
+                "high": 0.9948
+              },
+              "predicted_phishing_pct": 98.18,
+              "roc_auc": 0.6439,
+              "specificity_ci95": {
+                "low": 0.0185,
+                "high": 0.2132
+              }
+            }
+          }
+        },
+        "C_host": {
+          "score_mean": 0.8664,
+          "score_median": 1.0,
+          "groups": {
+            "full": {
+              "n": 355,
+              "tp": 285,
+              "fp": 13,
+              "fn": 15,
+              "tn": 42,
+              "precision": 0.9564,
+              "recall": 0.95,
+              "f1": 0.9532,
+              "specificity": 0.7636,
+              "balanced_accuracy": 0.8568,
+              "mcc": 0.7034,
+              "fp_rate": 0.2364,
+              "fp_rate_ci95": {
+                "low": 0.1437,
+                "high": 0.3635
+              },
+              "recall_ci95": {
+                "low": 0.9192,
+                "high": 0.9695
+              },
+              "predicted_phishing_pct": 83.94,
+              "roc_auc": 0.9253,
+              "specificity_ci95": {
+                "low": 0.6365,
+                "high": 0.8563
+              }
+            },
+            "not_in_allowlist": {
+              "n": 330,
+              "tp": 285,
+              "fp": 8,
+              "fn": 15,
+              "tn": 22,
+              "precision": 0.9727,
+              "recall": 0.95,
+              "f1": 0.9612,
+              "specificity": 0.7333,
+              "balanced_accuracy": 0.8417,
+              "mcc": 0.6226,
+              "fp_rate": 0.2667,
+              "fp_rate_ci95": {
+                "low": 0.1418,
+                "high": 0.4445
+              },
+              "recall_ci95": {
+                "low": 0.9192,
+                "high": 0.9695
+              },
+              "predicted_phishing_pct": 88.79,
+              "roc_auc": 0.9173,
+              "specificity_ci95": {
+                "low": 0.5555,
+                "high": 0.8582
+              }
+            }
+          }
+        }
+      }
+    },
+    "sensitivity": {
+      "n_legit": 55,
+      "transforms": [
+        "no_path_query",
+        "scheme_flip",
+        "www_prefix",
+        "trailing_slash"
+      ],
+      "variants": {
+        "B_refit": {
+          "original_mean": 0.8779,
+          "variants": {
+            "no_path_query": {
+              "urls_changed": 55,
+              "mean": -0.6769,
+              "median": -0.919,
+              "max_abs": 0.9995,
+              "increased": 0,
+              "decreased": 55,
+              "unchanged": 0
+            },
+            "scheme_flip": {
+              "urls_changed": 55,
+              "mean": 0.1221,
+              "median": 0.0,
+              "max_abs": 0.9738,
+              "increased": 32,
+              "decreased": 0,
+              "unchanged": 23
+            },
+            "www_prefix": {
+              "urls_changed": 23,
+              "mean": -0.0076,
+              "median": 0.0,
+              "max_abs": 0.3075,
+              "increased": 5,
+              "decreased": 5,
+              "unchanged": 45
+            },
+            "trailing_slash": {
+              "urls_changed": 31,
+              "mean": -0.0005,
+              "median": 0.0,
+              "max_abs": 0.0405,
+              "increased": 7,
+              "decreased": 1,
+              "unchanged": 47
+            }
+          }
+        },
+        "B_noHTTPS": {
+          "original_mean": 0.9296,
+          "variants": {
+            "no_path_query": {
+              "urls_changed": 55,
+              "mean": -0.7267,
+              "median": -0.9522,
+              "max_abs": 0.9988,
+              "increased": 0,
+              "decreased": 55,
+              "unchanged": 0
+            },
+            "scheme_flip": {
+              "urls_changed": 55,
+              "mean": -0.2821,
+              "median": 0.0,
+              "max_abs": 0.9086,
+              "increased": 2,
+              "decreased": 33,
+              "unchanged": 20
+            },
+            "www_prefix": {
+              "urls_changed": 23,
+              "mean": -0.0007,
+              "median": 0.0,
+              "max_abs": 0.0906,
+              "increased": 6,
+              "decreased": 7,
+              "unchanged": 42
+            },
+            "trailing_slash": {
+              "urls_changed": 31,
+              "mean": -0.0003,
+              "median": 0.0,
+              "max_abs": 0.0189,
+              "increased": 8,
+              "decreased": 4,
+              "unchanged": 43
+            }
+          }
+        },
+        "C_host": {
+          "original_mean": 0.3773,
+          "variants": {
+            "no_path_query": {
+              "urls_changed": 55,
+              "mean": 0.0,
+              "median": 0.0,
+              "max_abs": 0.0,
+              "increased": 0,
+              "decreased": 0,
+              "unchanged": 55
+            },
+            "scheme_flip": {
+              "urls_changed": 55,
+              "mean": 0.0,
+              "median": 0.0,
+              "max_abs": 0.0,
+              "increased": 0,
+              "decreased": 0,
+              "unchanged": 55
+            },
+            "www_prefix": {
+              "urls_changed": 23,
+              "mean": -0.0273,
+              "median": 0.0,
+              "max_abs": 0.937,
+              "increased": 11,
+              "decreased": 12,
+              "unchanged": 32
+            },
+            "trailing_slash": {
+              "urls_changed": 31,
+              "mean": 0.0,
+              "median": 0.0,
+              "max_abs": 0.0,
+              "increased": 0,
+              "decreased": 0,
+              "unchanged": 55
+            }
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Model C hanya melihat host: path, query, skema, dan isi halaman tidak dipakai.",
+    "Dibuang dari C_host: IsHTTPS/skema, URLLength, seluruh path/query, hitungan '=', '?', '&', fitur obfuscation URL, dan fitur konten; B_noHTTPS hanya membuang IsHTTPS.",
+    "Fitur host dilebur menjadi satu vonis per host, sehingga phishing di host sah (mis. layanan user-content) dan legit di host buruk tidak dapat dibedakan.",
+    "Split dikelompokkan per host penuh, bukan registrable domain; subdomain berbeda dari domain yang sama masih bisa muncul di kedua sisi.",
+    "GroupShuffleSplit tidak stratified, jadi proporsi label train/test bisa bergeser.",
+    "Tabel TLD baru memakai TLD host; tabel lama dihitung dari URL penuh sehingga banyak kuncinya tidak pernah cocok saat inference.",
+    "Set legit T18 kecil, sehingga specificity dan interval kepercayaannya lebar."
+  ],
+  "train_seconds_total": 241.0,
+  "evaluated_at": "2026-11-17T04:42:32+00:00"
+}
