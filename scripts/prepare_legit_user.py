@@ -92,8 +92,30 @@ PERSONAL_DOMAINS = {
     "starlingbank.com",
 }
 PRIVATE_SUFFIXES = (".local", ".localhost", ".internal", ".lan", ".home", ".corp", ".intranet")
-REVIEW_COLUMNS = ["url", "in_allowlist", "host_type", "person_label", "keep"]
-OUTPUT_COLUMNS = ["url", "in_allowlist", "host_type", "person_label"]
+REVIEW_COLUMNS = ["url", "reg_domain", "in_allowlist", "host_type", "person_label", "keep"]
+OUTPUT_COLUMNS = ["url", "reg_domain", "in_allowlist", "host_type", "person_label"]
+
+# Suffix dua bagian yang umum (offline, tanpa dependensi jaringan).
+TWO_PART_SUFFIXES = {
+    "co.id", "ac.id", "go.id", "or.id", "net.id", "sch.id", "web.id", "mil.id",
+    "my.id", "biz.id", "co.uk", "org.uk", "ac.uk", "co.jp", "or.jp", "ac.jp",
+    "com.au", "org.au", "net.au", "co.nz", "org.nz", "co.kr", "or.kr",
+    "com.br", "org.br", "com.cn", "org.cn", "com.tw", "org.tw",
+}
+
+
+def registered_domain(host: str) -> str:
+    """Domain terdaftar dari host memakai daftar suffix offline (tanpa PSL penuh)."""
+    host = (host or "").strip().lower().rstrip(".")
+    if host.startswith("www."):
+        host = host[4:]
+    labels = [label for label in host.split(".") if label]
+    if len(labels) <= 2:
+        return host
+    suffix = ".".join(labels[-2:])
+    if suffix in TWO_PART_SUFFIXES and len(labels) >= 3:
+        return ".".join(labels[-3:])
+    return ".".join(labels[-2:])
 
 
 def normalize_url(raw: str) -> str | None:
@@ -253,14 +275,15 @@ def prepare(
         seen.add(normalized)
         candidates.append(normalized)
 
-    by_host: dict[str, int] = {}
+    by_reg_domain: dict[str, int] = {}
     kept: list[str] = []
     for url in candidates:
         host = urlsplit(url).hostname or ""
-        if by_host.get(host, 0) >= max_per_host:
+        reg = registered_domain(host)
+        if by_reg_domain.get(reg, 0) >= max_per_host:
             counts["cap"] += 1
             continue
-        by_host[host] = by_host.get(host, 0) + 1
+        by_reg_domain[reg] = by_reg_domain.get(reg, 0) + 1
         kept.append(url)
 
     reset_cache()
@@ -270,6 +293,7 @@ def prepare(
         rows.append(
             {
                 "url": url,
+                "reg_domain": registered_domain(host),
                 "in_allowlist": "1" if is_trusted(host) else "0",
                 "host_type": host_type(url),
                 "person_label": person_label,
@@ -328,19 +352,75 @@ def split_review(
     print(f"Host tumpang tindih dev/final: {len(dev_hosts & final_hosts)}")
 
 
+def apply_cap_review(path: Path, max_per_reg_domain: int) -> None:
+    """Tambah reg_domain dan terapkan cap per reg_domain tanpa menghapus keep=1."""
+    if not path.exists():
+        raise SystemExit(f"File tidak ditemukan: {path}")
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = list(reader.fieldnames or [])
+        rows = [dict(row) for row in reader]
+
+    for row in rows:
+        if not (row.get("reg_domain") or "").strip():
+            row["reg_domain"] = registered_domain(urlsplit(row.get("url", "")).hostname or "")
+
+    keep_flags = [(row.get("keep") or "").strip() == "1" for row in rows]
+    kept_indices: set[int] = set()
+    counts: dict[str, int] = {}
+    for index, row in enumerate(rows):
+        if keep_flags[index]:
+            kept_indices.add(index)
+            reg = row["reg_domain"]
+            counts[reg] = counts.get(reg, 0) + 1
+    for index, row in enumerate(rows):
+        if index in kept_indices:
+            continue
+        reg = row["reg_domain"]
+        if counts.get(reg, 0) < max_per_reg_domain:
+            kept_indices.add(index)
+            counts[reg] = counts.get(reg, 0) + 1
+
+    kept_rows = [rows[index] for index in sorted(kept_indices)]
+    dropped = len(rows) - len(kept_rows)
+    if "reg_domain" not in fieldnames:
+        columns = ["url", "reg_domain"] + [col for col in fieldnames if col != "url"]
+    else:
+        columns = fieldnames
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns, lineterminator="\n")
+        writer.writeheader()
+        for row in kept_rows:
+            writer.writerow({column: row.get(column, "") for column in columns})
+
+    reg_before = len({row["reg_domain"] for row in rows})
+    reg_after = len({row["reg_domain"] for row in kept_rows})
+    print(f"Review: {len(rows)} baris, {reg_before} reg_domain")
+    print(f"Dipertahankan: {len(kept_rows)} baris ({reg_after} reg_domain)")
+    print(f"Dibuang: {dropped} baris (melebihi batas {max_per_reg_domain} per reg_domain)")
+    print(f"Ditulis: {path}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Siapkan set legitimate pribadi dari ekspor riwayat/bookmark")
     parser.add_argument("--input", default=str(DEFAULT_INPUT), help="file atau direktori ekspor")
     parser.add_argument("--output", default=str(DEFAULT_REVIEW), help="CSV review keluaran")
     parser.add_argument("--person-label", default="", help="label anonim (wajib di mode persiapan)")
     parser.add_argument("--max-per-host", type=int, default=5, help="maks URL per host")
-    parser.add_argument("--split", action="store_true", help="bagi legit_review.csv (keep=1) menjadi dev/final")
-    parser.add_argument("--review", default=str(DEFAULT_REVIEW), help="CSV review untuk mode split")
+    parser.add_argument("--apply-cap", action="store_true", help="tambah reg_domain dan terapkan cap 5 per reg_domain pada review CSV")
+    parser.add_argument("--review", default=str(DEFAULT_REVIEW), help="CSV review untuk --apply-cap / mode split")
+    parser.add_argument("--max-per-reg-domain", type=int, default=5, help="maks URL per reg_domain")
     parser.add_argument("--dev", default=str(DEFAULT_DEV), help="CSV dev keluaran")
     parser.add_argument("--final", default=str(DEFAULT_FINAL), help="CSV final keluaran")
-    parser.add_argument("--test-size", type=float, default=0.3, help="proporsi final")
+    parser.add_argument("--split", action="store_true", help="bagi legit_review.csv (keep=1) menjadi dev/final")
     parser.add_argument("--seed", type=int, default=42, help="seed split")
     args = parser.parse_args(argv)
+
+    if args.apply_cap:
+        apply_cap_review(Path(args.review), args.max_per_reg_domain)
+        return 0
 
     if args.split:
         split_review(Path(args.review), Path(args.dev), Path(args.final), args.test_size, args.seed)

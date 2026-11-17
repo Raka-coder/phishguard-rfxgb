@@ -61,12 +61,14 @@ antara dev dan final. Keluaran: `data/realworld/legit_dev.csv` dan
 `data/realworld/legit_final.csv` dengan kolom `url`, `in_allowlist`, `host_type`,
 `person_label`. Hanya agregat yang dicetak; tidak ada URL.
 
-## 5. Keterbatasan
+## 6. Keterbatasan
 
-- Filter sensitif berbasis kata kunci dan daftar domain; URL sensitif yang tidak
-  mengandung kata kunci bisa lolos. Review manual wajib.
-- Batas per host memakai urutan kemunculan input, bukan prioritas path/root.
+- Komposisi set: berita, kampus, pemerintah, dokumentasi; sedikit marketplace, bank, SaaS.
+- Crawl terbatas: maksimum 10 halaman per situs, tidak diperiksa terhadap robots.txt, jeda antar halaman tidak diukur ketat.
+- Host pendek (rata-rata sekitar 17 karakter), sehingga `DomainLength` bisa memengaruhi penilaian.
+- `reg_domain` memakai daftar suffix offline (bukan PSL penuh), jadi suffix baru bisa salah.
+- Filter sensitif berbasis kata kunci dan daftar domain; URL sensitif yang tidak mengandung kata kunci bisa lolos. Review manual wajib.
+- Batas per reg_domain memakai urutan kemunculan input, bukan prioritas path/root.
 - `in_allowlist` memakai exact match dari `src/trusted_domains.json`.
 - Set ini pribadi; jangan publikasikan URL atau identitas person_label.
-- Pembagian 70/30 per host tidak stratified menurut `in_allowlist` atau
-  `host_type`; proporsi bisa bergeser.
+- Pembagian 70/30 per reg_domain tidak stratified menurut `in_allowlist` atau `host_type`; proporsi bisa bergeser.

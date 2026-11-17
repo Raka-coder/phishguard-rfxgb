@@ -13,12 +13,14 @@ from scripts.prepare_legit_user import (
     DEFAULT_REVIEW,
     OUTPUT_COLUMNS,
     REVIEW_COLUMNS,
+    apply_cap_review,
     host_type,
     is_sensitive,
     main,
     normalize_url,
     prepare,
     read_export,
+    registered_domain,
     split_review,
 )
 
@@ -136,6 +138,32 @@ def test_split_review_requires_keep_one(tmp_path):
         split_review(review, tmp_path / "dev.csv", tmp_path / "final.csv", 0.3, 42)
 
 
+def test_registered_domain_two_part_suffix():
+    assert registered_domain("www.x.co.id") == "x.co.id"
+    assert registered_domain("a.b.ui.ac.id") == "ui.ac.id"
+    assert registered_domain("sub.example.com") == "example.com"
+    assert registered_domain("example.com") == "example.com"
+
+
+def test_apply_cap_review_adds_reg_domain_and_preserves_keep(tmp_path):
+    review = tmp_path / "review.csv"
+    rows = [
+        {"url": f"https://a{i}.ui.ac.id/x", "in_allowlist": "0", "host_type": "berpath", "person_label": "anon", "keep": "1" if i < 2 else "", "source_site": "ui.ac.id"}
+        for i in range(7)
+    ] + [
+        {"url": f"https://b{i}.example.com/x", "in_allowlist": "0", "host_type": "berpath", "person_label": "anon", "keep": "", "source_site": "example.com"}
+        for i in range(7)
+    ]
+    with review.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()), lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    apply_cap_review(review, 5)
+    out = list(csv.DictReader(review.open(encoding="utf-8")))
+    assert "reg_domain" in out[0]
+    assert all(r["reg_domain"] for r in out)
+    assert sum(r["reg_domain"] == "ui.ac.id" for r in out) == 5  # keep=1 (2) + isi sampai 5
+    assert sum(r["reg_domain"] == "example.com" for r in out) == 5
 def test_prepare_no_url_in_stdout(tmp_path, monkeypatch, capsys):
     csv_path = tmp_path / "in.csv"
     out_path = tmp_path / "review.csv"
