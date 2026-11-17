@@ -56,21 +56,38 @@ Rincian per kelompok:
 - `legit_dev`/`legit_final` bersifat pribadi dan gitignored.
 - Set legit T18/T24a kecil; interval kepercayaan lebar.
 
-## 7. Aturan keputusan (T25b)
+## 7. Aturan keputusan (T25d)
 
 Aturan ini diterapkan pada hasil set dev dunia nyata, sebelum set final dilihat.
 
-1. Kandidat yang lolos harus memiliki recall pada test PhiUSIIL berkelompok
-   >= 0,95.
-2. Di antara yang lolos, pilih MCC tertinggi pada set dev dunia nyata.
-3. Tie-break: ketahanan sensitivitas, yaitu perubahan skor/verdict terkecil pada
-   variasi URL (hapus path/query, tukar http/https, tambah www., trailing slash).
+1. Kandidat yang lolos harus memiliki **recall-terjaring** pada test PhiUSIIL
+   berkelompok >= 0,90.
+2. Di antara yang lolos, pilih **MCC tertinggi pada set dev**, dengan
+   `SUSPICIOUS` dihitung sebagai "ditandai" (positif) untuk semua kelas.
+3. Jika selisih MCC dev kurang dari 0,05, dianggap seri; pilih yang lebih tahan
+   sensitivitas (path/skema) dan lebih sederhana. Nyatakan seri sebagai seri.
 4. Kandidat terpilih lalu dievaluasi **satu kali** pada set final.
 
-## 8. Metrik tambahan untuk aturan kesepakatan (T25b)
+## 8. Metrik tambahan (T25d)
+
+Untuk semua kandidat:
 
 - Recall-terjaring: phishing divonis `PHISHING` atau `SUSPICIOUS`.
+- Specificity ketat: legitimate divonis `LEGITIMATE`.
+- Specificity longgar: legitimate tidak divonis `PHISHING`.
 - Proporsi legitimate yang divonis `SUSPICIOUS`.
-- Specificity ketat: `SUSPICIOUS` dihitung salah.
-- Specificity longgar: `SUSPICIOUS` dihitung benar.
-- Rincian root vs berpath dan in vs not in allowlist untuk semua metrik.
+- CI Wilson 95% untuk specificity ketat/longgar dan recall.
+- Rincian per kelompok: root vs berpath; in vs not in allowlist.
+
+Baseline `DomainLength`:
+
+- Ambang dipilih di data latih (arah tetap `higher_is_phishing`).
+- Divonis `PHISHING` bila `DomainLength >= ambang`, selain itu `LEGITIMATE`.
+
+## 9. Set dunia nyata (T25d)
+
+- dev = `legit_dev.csv` + separuh phishing OpenPhish.
+- final = `legit_final.csv` + separuh phishing lainnya.
+- Pembagian phishing OpenPhish dikelompokkan per `reg_domain` (seed 42), tanpa
+  domain di dua sisi.
+- Final kecil (34 URL legit + 150 phishing) dan hasilnya dilaporkan apa adanya.

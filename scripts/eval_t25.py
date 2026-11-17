@@ -47,7 +47,23 @@ def load_tld(path):
 def score_block(y_true, proba):
     predicted = np.where(proba >= THRESHOLD, LABEL_PHISH, LABEL_LEGIT).astype(int)
     block = metrics(np.asarray(y_true, dtype=int).tolist(), predicted.tolist())
-    block["roc_auc"] = round(float(roc_auc_score((np.asarray(y_true) == LABEL_PHISH).astype(int), proba)), 4)
+    block["roc_auc"] = round(float(roc_auc_score((np.asarray(y_true) == LABEL_PHISH).astype(int), proba)), 4) if len(set(y_true)) > 1 else None
+    block["specificity_ci95"] = wilson_interval(block["tn"], block["tn"] + block["fp"])
+    block["recall_ci95"] = wilson_interval(block["tp"], block["tp"] + block["fn"])
+    block["specificity_strict"] = block["specificity"]
+    block["specificity_loose"] = block["specificity"]
+    block["recall_terjaring"] = block["recall"]
+    block["legit_suspicious_pct"] = 0.0
+    return block
+
+
+def baseline_block(y_true, lengths, threshold):
+    predicted = np.where(np.asarray(lengths) >= threshold, LABEL_PHISH, LABEL_LEGIT).astype(int)
+    block = metrics(np.asarray(y_true, dtype=int).tolist(), predicted.tolist())
+    block["roc_auc"] = round(
+        float(roc_auc_score((np.asarray(y_true) == LABEL_PHISH).astype(int), np.asarray(lengths, dtype=float))), 4
+    ) if len(set(y_true)) > 1 else None
+    block["threshold"] = float(threshold)
     block["specificity_ci95"] = wilson_interval(block["tn"], block["tn"] + block["fp"])
     block["recall_ci95"] = wilson_interval(block["tp"], block["tp"] + block["fn"])
     block["specificity_strict"] = block["specificity"]
@@ -97,13 +113,14 @@ def group_candidate_metrics(y_true, p_b, p_c, mask):
     return candidate_metrics(y_true[mask], p_b[mask], p_c[mask])
 
 
-def evaluate_set(urls, labels, in_allow, host_types):
+def evaluate_set(urls, labels, in_allow, host_types, baseline_threshold):
     tld_old = load_tld(DEFAULT_TLD_OLD)
     tld_new = load_tld(DEFAULT_TLD_NEW)
     pipe_b = joblib.load(B_REFIT_PATH)
     pipe_c = joblib.load(C_HOST_PATH)
     p_b = phishing_proba(pipe_b, to_frame(urls, tld_old["map"], tld_old["default"]))
     p_c = phishing_proba(pipe_c, to_host_frame(urls, tld_new["map"], tld_new["default"], strip_www=True))
+    lengths = to_frame(urls, tld_old["map"], tld_old["default"])["DomainLength"].to_numpy(dtype=float)
     y = np.asarray(labels, dtype=int)
     in_allow = np.asarray(in_allow, dtype=bool)
     host_types = np.asarray(host_types)
@@ -126,9 +143,15 @@ def evaluate_set(urls, labels, in_allow, host_types):
         "candidates": {},
     }
     for name, mask in groups.items():
-        block = group_candidate_metrics(y, p_b, p_c, mask)
-        if block is not None:
-            result["groups"][name] = block
+        if mask.sum() == 0:
+            continue
+        block = {
+            "B_refit": score_block(y[mask], p_b[mask]),
+            "C_host": score_block(y[mask], p_c[mask]),
+            "consensus": consensus_block(y[mask], p_b[mask], p_c[mask]),
+            "baseline_DomainLength": baseline_block(y[mask], lengths[mask], baseline_threshold),
+        }
+        result["groups"][name] = block
     result["candidates"] = result["groups"].get("all", {})
     return result
 
@@ -199,9 +222,9 @@ def render_markdown(payload):
         f"PhiUSIIL berkelompok, dan set dev. Rekomendasi: **`{payload['selection']['selected']}`** "
         f"({payload['selection']['criterion']}).",
         "",
-        "## Aturan keputusan (T25b)",
+        "## Aturan keputusan (T25d)",
         "",
-        f"Syarat lantai recall test PhiUSIIL grouped: {payload.get('decision_rule', {}).get('floor_recall_grouped_test', '—')}.",
+        f"Syarat lantai recall-terjaring test PhiUSIIL grouped: {payload.get('decision_rule', {}).get('floor_recall_grouped_test', '—')}.",
         f"Lolos: {', '.join(payload.get('decision_rule', {}).get('eligible_by_floor', [])) or '—'}.",
         f"Terpilih: **`{payload.get('selection', {}).get('selected')}`**.",
         "",
@@ -210,7 +233,7 @@ def render_markdown(payload):
         "| Kandidat | Robustness |",
         "|---|---|",
     ]
-    for name in ("B_refit", "C_host", "consensus"):
+    for name in ("B_refit", "C_host", "consensus", "baseline_DomainLength"):
         value = payload.get("decision_rule", {}).get("robustness", {}).get(name, "—")
         lines.append(f"| `{name}` | {value} |")
     lines += [
@@ -232,7 +255,7 @@ def render_markdown(payload):
         "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     test = train["test_grouped"]
-    for name in ("B_refit", "C_host", "consensus"):
+    for name in ("B_refit", "C_host", "consensus", "baseline_DomainLength"):
         block = test[name]
         lines.append(
             f"| `{name}` | {_fmt(block.get('precision'))} | {_fmt(block.get('recall'))} | "
@@ -248,10 +271,12 @@ def render_markdown(payload):
         "|---|---|---|",
     ]
     cv = train["cv_grouped"]
-    for name in ("B_refit", "C_host", "consensus"):
+    for name in ("B_refit", "C_host", "consensus", "baseline_DomainLength"):
         block = cv[name]
         if name == "consensus":
             lines.append(f"| `{name}` | MCC {block['mcc_mean']} | {block['suspicious_pct_mean']} |")
+        elif name == "baseline_DomainLength":
+            lines.append(f"| `{name}` | MCC {block['mcc_mean']}, Recall {block['recall_mean']}, Spec {block['specificity_mean']}, AUC {block['roc_auc_mean']} | — |")
         else:
             lines.append(
                 f"| `{name}` | F1 {block['f1_phishing_mean']}, MCC {block['mcc_mean']}, "
@@ -267,6 +292,8 @@ def render_markdown(payload):
         lines += [f"- Tidak tersedia: {realworld.get('reason', 'file T24a belum ada')}.", ""]
     else:
         for split_name in ("dev", "final"):
+            if split_name not in realworld:
+                continue
             split_data = realworld[split_name]
             lines += [
                 f"### {split_name}",
@@ -278,8 +305,8 @@ def render_markdown(payload):
                 "| Kandidat | Precision | Recall (95% CI) | F1 | MCC | Spec ketat | Spec longgar | Recall-terjaring | Legit SUSP % | Suspicious % |",
                 "|---|---|---|---|---|---|---|---|---|---|",
             ]
-            for name in ("B_refit", "C_host", "consensus"):
-                block = split_data["candidates"][name]["all"]
+            for name in ("B_refit", "C_host", "consensus", "baseline_DomainLength"):
+                block = split_data["candidates"][name]
                 lines.append(
                     f"| `{name}` | {_fmt(block['precision'])} | {_fmt(block['recall'])} "
                     f"({_ci(block['recall_ci95'])}) | {_fmt(block['f1'])} | {_fmt(block['mcc'])} | "
@@ -295,18 +322,18 @@ def render_markdown(payload):
                 "|---|---|---|---|",
             ]
             for group in ("root", "berpath", "in_allowlist", "not_in_allowlist"):
-                if group in split_data["candidates"]["B_refit"]:
+                if group in split_data.get("groups", {}):
                     lines.append(
-                        f"| {group} | {_fmt(split_data['candidates']['B_refit'][group]['f1'])} | "
-                        f"{_fmt(split_data['candidates']['C_host'][group]['f1'])} | "
-                        f"{_fmt(split_data['candidates']['consensus'][group]['f1'])} |"
+                        f"| {group} | {_fmt(split_data['groups'][group].get('B_refit', {}).get('f1'))} | "
+                        f"{_fmt(split_data['groups'][group].get('C_host', {}).get('f1'))} | "
+                        f"{_fmt(split_data['groups'][group].get('consensus', {}).get('f1'))} |"
                     )
             lines.append("")
     lines += [
         "## Agregat T24a",
         "",
     ]
-    agg = payload.get("t24a_aggregate", {})
+    agg = payload.get("t24a_aggregate") or t24a_aggregate()
     if not agg.get("available"):
         lines += [f"- Belum tersedia: {agg.get('note', 'file T24a belum ada')}.", ""]
     else:
@@ -361,18 +388,21 @@ def transform_robustness(urls, p_b_orig, p_c_orig, verdict_orig, tld_old, tld_ne
 def apply_decision(dev_result, train, robustness, floor_recall):
     eligible = [
         name
-        for name in ("B_refit", "C_host", "consensus")
-        if (train["test_grouped"].get(name, {}).get("recall") or 0) >= floor_recall
+        for name in ("B_refit", "C_host", "consensus", "baseline_DomainLength")
+        if (train["test_grouped"].get(name, {}).get("recall_terjaring") or 0) >= floor_recall
     ]
-    pool = eligible if eligible else ["B_refit", "C_host", "consensus"]
-    best = max(
-        pool,
-        key=lambda name: (
-            dev_result["candidates"].get(name, {}).get("all", {}).get("mcc") or -10,
-            -robustness.get(name, 99),
-        ),
-    )
-    return best, eligible, pool
+    pool = eligible if eligible else ["B_refit", "C_host", "consensus", "baseline_DomainLength"]
+    simplicity = {"baseline_DomainLength": 0, "C_host": 1, "B_refit": 2, "consensus": 3}
+    mccs = {name: (dev_result["candidates"].get(name, {}).get("mcc") or -10) for name in pool}
+    best_mcc = max(mccs.values())
+    tied = [name for name in pool if best_mcc - (mccs[name] or -10) < 0.05]
+    if len(tied) > 1:
+        best = min(tied, key=lambda name: (robustness.get(name, 99), simplicity.get(name, 99)))
+        tie = True
+    else:
+        best = max(pool, key=lambda name: (mccs[name] or -10, -robustness.get(name, 99), -simplicity.get(name, 99)))
+        tie = False
+    return best, eligible, pool, tied, tie
 
 
 def main(argv=None):
@@ -391,7 +421,7 @@ def main(argv=None):
     payload["evaluated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # Real-world dev evaluation
-    realworld = payload.get("evaluation", {}).get("realworld", {"available": False})
+    realworld = (payload.get("evaluation") or {}).get("realworld", {"available": False})
     dev_result = None
     if LEGIT_DEV.exists() and LEGIT_FINAL.exists():
         dev_legit = load_rows(LEGIT_DEV)
@@ -415,7 +445,8 @@ def main(argv=None):
         verdict_dev, _, _ = consensus_proba(p_b_dev, p_c_dev)
         robustness = transform_robustness(dev_urls, p_b_dev, p_c_dev, verdict_dev, tld_old, tld_new, pipe_b, pipe_c)
 
-        dev_result = evaluate_set(dev_urls, dev_labels, dev_allow, dev_types)
+        baseline_threshold = payload.get("baseline_domainlength", {}).get("threshold", payload.get("test_grouped", {}).get("baseline_DomainLength", {}).get("threshold"))
+        dev_result = evaluate_set(dev_urls, dev_labels, dev_allow, dev_types, baseline_threshold)
         realworld = {
             "available": True,
             "dev": dev_result,
@@ -426,24 +457,32 @@ def main(argv=None):
                 "seed": 42,
             },
         }
-        if "final" in payload.get("evaluation", {}).get("realworld", {}):
+        if "final" in (payload.get("evaluation") or {}).get("realworld", {}):
             realworld["final"] = payload["evaluation"]["realworld"]["final"]
 
-        best, eligible, pool = apply_decision(dev_result, payload["train"], robustness, args.floor_recall)
+        payload["train"] = {
+            "cv_grouped": payload.get("cv_grouped", {}),
+            "test_grouped": payload.get("test_grouped", {}),
+            "www_normalization_effect": payload.get("www_normalization_effect", {}),
+        }
+        best, eligible, pool, tied, tie = apply_decision(dev_result, payload["train"], robustness, args.floor_recall)
         payload["evaluation"] = {"realworld": realworld}
         payload["decision_rule"] = {
             "floor_recall_grouped_test": args.floor_recall,
-            "primary": "MCC tertinggi pada set dev dunia nyata",
-            "tie_break": "ketahanan sensitivitas (perubahan skor/verdict terkecil)",
+            "primary": "MCC tertinggi pada set dev dunia nyata (SUSPICIOUS dihitung ditandai)",
+            "tie_threshold": 0.05,
             "eligible_by_floor": eligible,
             "pool": pool,
+            "tied": tied,
+            "tie": tie,
             "robustness": robustness,
         }
         payload["selection"] = {
             "selected": best,
             "criterion": (
-                f"floor recall grouped test >= {args.floor_recall}; "
-                "MCC tertinggi pada set dev; tie-break ketahanan sensitivitas"
+                f"floor recall-terjaring grouped test >= {args.floor_recall}; "
+                "MCC tertinggi pada set dev (SUSPICIOUS dihitung ditandai); "
+                "seri jika selisih MCC dev < 0.05; tie-break ketahanan sensitivitas dan kesederhanaan"
             ),
             "realworld_available": True,
         }
@@ -461,7 +500,7 @@ def main(argv=None):
         "test_grouped": payload.get("test_grouped", {}),
         "www_normalization_effect": payload.get("www_normalization_effect", {}),
     }
-    payload["t24a_aggregate"] = payload.get("t24a_aggregate", t24a_aggregate())
+    payload["t24a_aggregate"] = payload.get("t24a_aggregate") or t24a_aggregate()
 
     # Final evaluation: only once unless forced
     if args.finalize:
@@ -477,7 +516,8 @@ def main(argv=None):
             final_labels = np.array([LABEL_LEGIT] * len(final_legit) + [LABEL_PHISH] * len(final_phish), dtype=int)
             final_allow = np.array([is_trusted(host_of(u)) for u in final_urls])
             final_types = np.array([host_type(u) for u in final_urls])
-            final_result = evaluate_set(final_urls, final_labels, final_allow, final_types)
+            baseline_threshold = payload.get("baseline_domainlength", {}).get("threshold", payload.get("test_grouped", {}).get("baseline_DomainLength", {}).get("threshold"))
+            final_result = evaluate_set(final_urls, final_labels, final_allow, final_types, baseline_threshold)
             payload["evaluation"]["realworld"]["final"] = final_result
             payload["evaluation"]["realworld"]["available"] = True
             print(f"Final dievaluasi: n={final_result['n']}")
@@ -495,7 +535,7 @@ def main(argv=None):
     DOC_PATH.write_text(render_markdown(payload), encoding="utf-8")
     if realworld.get("available"):
         print(f"Dev: n={realworld['dev']['n']}, legit={realworld['dev']['n_legit']}, phishing={realworld['dev']['n_phishing']}")
-    print(f"T24a tersedia: {payload['t24a_aggregate'].get('available')}")
+    print(f"T24a tersedia: {(payload.get('t24a_aggregate') or {}).get('available')}")
     print(f"Ditulis: {JSON_PATH.relative_to(ROOT)} dan {DOC_PATH.relative_to(ROOT)}")
     return 0
 
