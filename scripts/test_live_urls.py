@@ -28,6 +28,12 @@ def _top3(result: dict) -> str:
     return "<br>".join(f"{it['feature']}={it['value']} ({it['impact']})" for it in items[:3])
 
 
+def _probability_text(result: dict) -> str:
+    """Allowlist/denylist tidak menyimpan skor; tampilkan '-', bukan 'None'."""
+    value = result.get("probability")
+    return "-" if value is None else str(value)
+
+
 def run(urls: list[str]) -> list[tuple[str, object]]:
     """Jalankan predict_url; ValueError ditangkap, bukan crash."""
     out: list[tuple[str, object]] = []
@@ -42,20 +48,23 @@ def run(urls: list[str]) -> list[tuple[str, object]]:
 def print_console(results: list[tuple[str, object]]) -> None:
     print(f"{'URL':<60} | {'label':<11} | P(phish) | ms      | top-1 fitur")
     print("-" * 100)
-    n_phish = n_legit = n_err = 0
+    n_phish = n_legit = n_suspicious = n_err = 0
     for url, result in results:
         if isinstance(result, Exception):
             n_err += 1
             print(f"{url[:60]:<60} | {'ERROR':<11} | -        | -       | {result}")
         else:
-            if result["label"] == 0:
+            verdict = result.get("verdict") or ("PHISHING" if result["label"] == 0 else "LEGITIMATE")
+            if verdict == "PHISHING":
                 n_phish += 1
-            else:
+            elif verdict == "LEGITIMATE":
                 n_legit += 1
+            else:
+                n_suspicious += 1
             top = result["top_features"][0]["feature"] if result["top_features"] else "-"
-            print(f"{url[:60]:<60} | {result['label_name']:<11} | {result['probability']:<8} | {result['inference_ms']:>7} | {top}")
+            print(f"{url[:60]:<60} | {result['label_name']:<11} | {_probability_text(result):<8} | {result['inference_ms']:>7} | {top}")
     print("-" * 100)
-    print(f"Ringkasan: {n_phish} PHISHING, {n_legit} LEGITIMATE, {n_err} ERROR (total {len(results)})")
+    print(f"Ringkasan: {n_phish} PHISHING, {n_legit} LEGITIMATE, {n_suspicious} TIDAK TERVERIFIKASI, {n_err} ERROR (total {len(results)})")
 
 
 def print_markdown(results: list[tuple[str, object]]) -> None:
@@ -65,7 +74,7 @@ def print_markdown(results: list[tuple[str, object]]) -> None:
         if isinstance(result, Exception):
             print(f"| `{url}` | ERROR | - | - | {result} |")
         else:
-            print(f"| `{url}` | {result['label_name']} | {result['probability']} | {result['inference_ms']} | {_top3(result)} |")
+            print(f"| `{url}` | {result['label_name']} | {_probability_text(result)} | {result['inference_ms']} | {_top3(result)} |")
 
 
 def main() -> int:

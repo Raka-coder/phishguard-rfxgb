@@ -46,6 +46,28 @@ def test_console_output_contains_all_urls(monkeypatch, capsys):
     assert "Ringkasan:" in out
 
 
+def test_console_handles_none_probability_from_allowlist(monkeypatch, capsys):
+    def fake_predict(url):
+        return {"url": url, "label": 1, "label_name": "LEGITIMATE", "probability": None, "inference_ms": 1.0, "top_features": []}
+
+    monkeypatch.setattr(live, "predict_url", fake_predict)
+    live.print_console(live.run(["https://github.com"]))
+    out = capsys.readouterr().out
+    assert "LEGITIMATE" in out
+    assert "None" not in out
+
+
+def test_console_summary_counts_suspicious_from_verdict(monkeypatch, capsys):
+    def fake_predict(url):
+        return {"url": url, "label": 0, "label_name": "SUSPICIOUS", "verdict": "SUSPICIOUS", "probability": 0.5, "inference_ms": 1.0, "top_features": []}
+
+    monkeypatch.setattr(live, "predict_url", fake_predict)
+    live.print_console(live.run(["https://x.com"]))
+    out = capsys.readouterr().out
+    assert "1 TIDAK TERVERIFIKASI" in out
+    assert "0 PHISHING" in out
+
+
 def test_markdown_output_is_deterministic(monkeypatch, capsys):
     def fake_predict(url):
         return {"url": url, "label": 0, "label_name": "PHISHING", "probability": 0.9, "inference_ms": 2.0, "top_features": [{"feature": "IsHTTPS", "value": 0.0, "impact": "meningkatkan risiko"}]}

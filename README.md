@@ -3,11 +3,12 @@
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.163-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Reflex](https://img.shields.io/badge/Reflex-0.11-6C5CE7?style=flat-square)](https://reflex.dev)
-[![Tests](https://img.shields.io/badge/tests-143%20passed-brightgreen?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-145%20passed-brightgreen?style=flat-square)](#testing)
 [![Dataset](https://img.shields.io/badge/Dataset-CC%20BY--NC--SA%204.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI** dengan
-model yang dilatih dari dataset [PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset),
+PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI**
+(di API: `SUSPICIOUS`) dengan model yang dilatih dari dataset
+[PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset),
 lalu menjelaskan setiap vonis lewat `trail` (lapisan mana yang memutuskan dan kenapa). Antarmuka memakai
 **Reflex** (100% Python) dan inference dilayani **FastAPI**. Proyek mata kuliah Keamanan Informasi —
 KP70065004, Informatika, Universitas Siliwangi.
@@ -26,11 +27,10 @@ URL
  │        feed hilang/basi -> dilewati, tercatat di trail
  ├─2─ allowlist domain tepercaya (offline, ~60 domain) ── cocok ──> LEGITIMATE
  ├─3─ Model C (host, 10 fitur) + Model B (URL, 19 fitur)
- │        dua skor dipetakan ke zona rendah / sedang / tinggi:
+ │        dua skor dipetakan ke zona rendah (<0,40) / sedang (0,40–0,65) / tinggi (>=0,65):
  │        sama-sama rendah -> LEGITIMATE, sama-sama tinggi -> TIDAK TERVERIFIKASI,
- │        berbeda -> TIDAK TERVERIFIKASI
- ├─4─ shortener (bit.ly, t.co, dll.) ──> TIDAK TERVERIFIKASI bila masih LEGITIMATE
- └─5─ uncertainty band Model B 0,40–0,65 ──> TIDAK TERVERIFIKASI
+ │        berbeda -> TIDAK TERVERIFIKASI (tanpa Model C: band Model B saja)
+ └─4─ shortener (bit.ly, t.co, dll.) ──> TIDAK TERVERIFIKASI bila masih LEGITIMATE
 ```
 
 - **Model A** (50 fitur, termasuk konten halaman) hanya untuk laporan; fitur kontennya tidak tersedia
@@ -87,7 +87,7 @@ uv run python scripts/train_t25.py      # menghasilkan ulang C_host.pkl + tld_pr
 # Opsional: snapshot feed untuk lapisan denylist (satu-satunya skrip yang memakai jaringan)
 uv run python scripts/sync_feeds.py
 
-uv run pytest -q                        # 143 tests
+uv run pytest -q                        # 145 tests
 uv run reflex compile                  # cek UI tanpa server
 
 # Terminal 1 — API
@@ -182,7 +182,7 @@ menyimpan snapshot bertanggal di `data/feeds/openphish-YYYYMMDD-HHMMSS.txt` tanp
 ## Testing
 
 ```powershell
-uv run pytest -q                                  # 143 tests
+uv run pytest -q                                  # 145 tests
 uv run pytest -q tests/test_predict.py::test_nama
 uv run reflex compile                             # build UI tanpa server
 uv run python scripts/test_live_urls.py           # uji corpus contoh sintetis
