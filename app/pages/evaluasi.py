@@ -1,4 +1,4 @@
-"""Halaman evaluasi: ringkasan training (CV), grafik, confusion matrix, dan laporan test set."""
+"""Halaman evaluasi: CV, benchmark test set vs dunia nyata, diagnostik, dan keterbatasan."""
 
 import json
 import re
@@ -12,10 +12,18 @@ from app.components import card, card_title, muted, page_shell
 ROOT = Path(__file__).resolve().parents[2]
 METRICS_PATH = ROOT / "docs" / "metrics.json"
 HASIL_PATH = ROOT / "docs" / "hasil_evaluasi.md"
+REALWORLD_PATH = ROOT / "docs" / "realworld.json"
+MODEL_C_PATH = ROOT / "docs" / "model_c.json"
+DENYLIST_PATH = ROOT / "docs" / "denylist.json"
+T25_PATH = ROOT / "docs" / "t25.json"
 
 MODEL_GROUPS = (("model_a", "Model A (full)"), ("model_b", "Model B (URL-only)"))
 ALGOS = ("lr", "rf", "xgb")
 _CONF_RE = re.compile(r"Confusion matrix — Model B.*?TP=(\d+), FN=(\d+), FP=(\d+), TN=(\d+)", re.S)
+_METRIC_RE = re.compile(
+    r"^\|\s*B\s*\|\s*\d+\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|",
+    re.MULTILINE,
+)
 
 
 # --- Helper murni (mudah dites tanpa Reflex) --------------------------------
@@ -79,7 +87,7 @@ def parse_confusion(markdown: str) -> dict[str, str] | None:
 
 
 def format_count(value) -> str:
-    """188636 -> '188.636' (pemisah ribuan gaya Indonesia); non-angka dikembalikan apa adanya."""
+    """Pemisah ribuan gaya Indonesia; non-angka dikembalikan apa adanya."""
     if value in (None, ""):
         return ""
     try:
@@ -91,6 +99,296 @@ def format_count(value) -> str:
 def clean_report(markdown: str) -> str:
     """Sel tabel memakai <br>; renderer markdown menampilkannya sebagai teks, jadi ganti."""
     return markdown.replace("<br>", "; ")
+
+
+def format_pct(value) -> str:
+    """Empat desimal; nilai kosong -> '—'. Angka tetap berasal dari JSON/markdown."""
+    if value in (None, ""):
+        return "—"
+    try:
+        return f"{float(value):.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_delta(value) -> str:
+    """Tanda plus/minus untuk selisih antarartefak."""
+    if value in (None, ""):
+        return "—"
+    try:
+        return f"{float(value):+.4f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+# --- T22: pembaca metrik dari artefak skrip evaluasi -------------------------
+def build_test_metrics(hasil_md: str) -> dict | None:
+    """Baris metrik Model B pada test set dari hasil_evaluasi.md; None bila format tidak cocok."""
+    match = _METRIC_RE.search(hasil_md or "")
+    if not match:
+        return None
+    conf = _CONF_RE.search(hasil_md or "")
+    return {
+        "accuracy": float(match.group(1)),
+        "precision": float(match.group(2)),
+        "recall": float(match.group(3)),
+        "f1": float(match.group(4)),
+        "fp": int(match.group(5)),
+        "fn": int(match.group(6)),
+        "tp": int(conf.group(1)) if conf else 0,
+        "tn": int(conf.group(4)) if conf else 0,
+    }
+
+
+def build_realworld_metrics(realworld: dict) -> dict:
+    """Blok metrik dunia nyata (model_only + with_reputation) dari docs/realworld.json."""
+    full = ((realworld or {}).get("variants") or {}).get("full") or {}
+    with_rep = full.get("with_reputation") or {}
+    group = str(with_rep.get("primary_group") or "not_in_allowlist")
+    primary = with_rep.get("primary") or (with_rep.get("by_allowlist") or {}).get(group) or {}
+    return {
+        "generated_at": str(realworld.get("generated_at") or ""),
+        "model_only": full.get("model_only") or {},
+        "primary_group": group,
+        "primary": primary,
+        "all": with_rep.get("all") or {},
+    }
+
+
+def _one_block(block: dict) -> dict:
+    """Ambil metrik satu blok, lengkap dengan interval Wilson; siap dipakai di UI."""
+    ci_fp = block.get("fp_rate_ci95") or {}
+    ci_recall = block.get("recall_ci95") or {}
+    return {
+        "n": format_count(block.get("n")),
+        "tp": format_count(block.get("tp")),
+        "fp": format_count(block.get("fp")),
+        "fn": format_count(block.get("fn")),
+        "tn": format_count(block.get("tn")),
+        "precision": format_pct(block.get("precision")),
+        "recall": format_pct(block.get("recall")),
+        "f1": format_pct(block.get("f1")),
+        "accuracy": "—",
+        "fp_rate": format_pct(block.get("fp_rate")),
+        "fp_rate_ci": f"{format_pct(ci_fp.get('low'))}–{format_pct(ci_fp.get('high'))}",
+        "recall_ci": f"{format_pct(ci_recall.get('low'))}–{format_pct(ci_recall.get('high'))}",
+    }
+
+
+def build_benchmark_rows(metrics: dict, realworld: dict, hasil_md: str) -> list[dict]:
+    """Kartu benchmark: test set PhiUSIIL dan dua varian uji dunia nyata (Model B)."""
+    rows: list[dict] = []
+    test = build_test_metrics(hasil_md) or {}
+    split = (metrics or {}).get("split") or {}
+    rows.append(
+        {
+            "set": "Test set — PhiUSIIL",
+            "n": format_count(split.get("n_test")),
+            "tp": format_count(test.get("tp")),
+            "fp": format_count(test.get("fp")),
+            "fn": format_count(test.get("fn")),
+            "tn": format_count(test.get("tn")),
+            "precision": format_pct(test.get("precision")),
+            "recall": format_pct(test.get("recall")),
+            "f1": format_pct(test.get("f1")),
+            "accuracy": format_pct(test.get("accuracy")),
+            "fp_rate_ci": "—",
+            "recall_ci": "—",
+        }
+    )
+    rw = build_realworld_metrics(realworld)
+    for label, key in (
+        ("Uji dunia nyata — model only", "model_only"),
+        (f"Uji dunia nyata — with reputation ({rw['primary_group']})", "primary"),
+    ):
+        block = rw.get(key) or {}
+        if block:
+            rows.append({"set": label, **_one_block(block)})
+    return rows
+
+
+def build_roc_shift(model_c: dict, candidate: str = "B_refit") -> dict:
+    """ROC-AUC kandidat di test set vs dunia nyata (not_in_allowlist) dari docs/model_c.json."""
+    variants = (model_c or {}).get("variants") or {}
+    variant = variants.get(candidate) or {}
+    test = variant.get("test_grouped") or {}
+    rw_variants = (((model_c or {}).get("evaluation") or {}).get("realworld") or {}).get("variants") or {}
+    groups = ((rw_variants or {}).get(candidate) or {}).get("groups") or {}
+    not_in = groups.get("not_in_allowlist") or groups.get("full") or {}
+    test_auc = test.get("roc_auc")
+    rw_auc = not_in.get("roc_auc")
+    delta = (
+        format_delta(float(test_auc) - float(rw_auc))
+        if test_auc is not None and rw_auc is not None
+        else "—"
+    )
+    return {
+        "candidate": candidate,
+        "source": str(variant.get("source") or ""),
+        "test_roc_auc": format_pct(test_auc),
+        "realworld_roc_auc": format_pct(rw_auc),
+        "delta": delta,
+    }
+
+
+def build_candidate_rows(t25: dict) -> list[dict]:
+    """Per kandidat T25: benar/salah pada grouped test + SUSPICIOUS sebagai kategori sendiri."""
+    rows: list[dict] = []
+    for name, block in sorted(((t25 or {}).get("test_grouped") or {}).items()):
+        if not isinstance(block, dict):
+            continue
+        tp = int(block.get("tp") or 0)
+        fp = int(block.get("fp") or 0)
+        fn = int(block.get("fn") or 0)
+        tn = int(block.get("tn") or 0)
+        rows.append(
+            {
+                "candidate": str(name),
+                "n": format_count(block.get("n")),
+                "benar": format_count(tp + tn),
+                "salah": format_count(fp + fn),
+                "tp": format_count(tp),
+                "fp": format_count(fp),
+                "fn": format_count(fn),
+                "tn": format_count(tn),
+                "precision": format_pct(block.get("precision")),
+                "recall": format_pct(block.get("recall")),
+                "f1": format_pct(block.get("f1")),
+                "suspicious": (
+                    f"{format_count(block.get('suspicious_n'))} ({format_pct(block.get('suspicious_pct'))}%)"
+                ),
+            }
+        )
+    return rows
+
+
+def build_sensitivity_rows(model_c: dict) -> list[dict]:
+    """Sensitivitas URL legit: transform yang diuji dan perubahan skor P(phishing)."""
+    rows: list[dict] = []
+    sensitivity = ((model_c or {}).get("evaluation") or {}).get("sensitivity") or {}
+    for candidate, variant in sorted((sensitivity.get("variants") or {}).items()):
+        if not isinstance(variant, dict):
+            continue
+        for transform, item in sorted((variant.get("variants") or {}).items()):
+            if not isinstance(item, dict):
+                continue
+            rows.append(
+                {
+                    "candidate": str(candidate),
+                    "transform": str(transform),
+                    "urls_changed": format_count(item.get("urls_changed")),
+                    "mean_delta": format_delta(item.get("mean")),
+                    "median_delta": format_delta(item.get("median")),
+                    "increased": format_count(item.get("increased")),
+                    "decreased": format_count(item.get("decreased")),
+                }
+            )
+    return rows
+
+
+def build_www_effect(t25: dict) -> dict:
+    """Efek normalisasi www. dari docs/t25.json (T25), bukan angka yang diketik manual."""
+    effect = (t25 or {}).get("www_normalization_effect") or {}
+    return {
+        "delta_f1": format_delta(effect.get("delta_f1")),
+        "delta_mcc": format_delta(effect.get("delta_mcc")),
+        "delta_roc_auc": format_delta(effect.get("delta_roc_auc")),
+    }
+
+
+def build_denylist_rows(denylist: dict) -> list[dict]:
+    """Baris ringkasan denylist: snapshot, tumpang tindih, umur, FP, dan vonis sistem penuh."""
+    rows: list[dict] = []
+    for snap in (denylist or {}).get("snapshots") or []:
+        if isinstance(snap, dict):
+            name = str(snap.get("name") or "")
+            n = format_count(snap.get("n_urls"))
+            rows.append(
+                {
+                    "kind": "snapshot",
+                    "name": name,
+                    "n": n,
+                    "label": f"Snapshot {name}",
+                    "value": f"{n} URL",
+                }
+            )
+    for overlap in (denylist or {}).get("overlap") or []:
+        if isinstance(overlap, dict):
+            a = str(overlap.get("snapshot_a") or "")
+            b = str(overlap.get("snapshot_b") or "")
+            n_url = format_count(overlap.get("n_url_overlap"))
+            n_host = format_count(overlap.get("n_host_overlap"))
+            n_domain = format_count(overlap.get("n_domain_overlap"))
+            n_new = format_count(overlap.get("n_new_in_b"))
+            hours = format_pct(overlap.get("hours_between_snapshots"))
+            rows.append(
+                {
+                    "kind": "overlap",
+                    "snapshot_a": a,
+                    "snapshot_b": b,
+                    "n_url_overlap": n_url,
+                    "n_host_overlap": n_host,
+                    "n_domain_overlap": n_domain,
+                    "n_new_in_b": n_new,
+                    "hours": hours,
+                    "label": f"Tumpang tindih {a} → {b}",
+                    "value": f"URL {n_url}, host {n_host}, domain {n_domain}, baru {n_new} ({hours} jam)",
+                }
+            )
+    for age in (denylist or {}).get("age_curve") or []:
+        if isinstance(age, dict):
+            hours = format_pct(age.get("hours_between_snapshots"))
+            pct = format_pct(age.get("pct_still_present"))
+            rows.append(
+                {
+                    "kind": "age",
+                    "hours": hours,
+                    "pct_still_present": pct,
+                    "label": f"Umur {hours} jam",
+                    "value": f"masih ada {pct}",
+                }
+            )
+    fp = (denylist or {}).get("false_positives") or {}
+    for group in ("legit_dev", "legit_final"):
+        block = fp.get(group) or {}
+        tested = format_count(block.get("n_tested"))
+        n_fp = format_count(block.get("n_fp"))
+        rows.append(
+            {
+                "kind": "fp",
+                "group": group,
+                "n_tested": tested,
+                "n_fp": n_fp,
+                "label": f"False positive {group}",
+                "value": f"{n_fp} dari {tested}",
+            }
+        )
+    full = (denylist or {}).get("full_system") or {}
+    results = full.get("results") or {}
+    for mode in full.get("modes_run") or []:
+        for group in ("legit_dev", "legit_final"):
+            block = (results.get(str(mode)) or {}).get(group) or {}
+            tested = format_count(block.get("n_tested"))
+            for verdict in ("PHISHING", "SUSPICIOUS", "LEGITIMATE"):
+                n = format_count((block.get("verdicts") or {}).get(verdict))
+                rows.append(
+                    {
+                        "kind": "verdict",
+                        "mode": str(mode),
+                        "group": group,
+                        "verdict": verdict,
+                        "n_tested": tested,
+                        "n": n,
+                        "label": f"{mode} · {group} · {verdict}",
+                        "value": f"{n} dari {tested}",
+                    }
+                )
+    return rows
+
+
+def build_limitations(model_c: dict) -> list[str]:
+    """Daftar keterbatasan dari docs/model_c.json."""
+    return [str(item) for item in ((model_c or {}).get("limitations") or []) if str(item)]
 
 
 # --- State ------------------------------------------------------------------
@@ -114,6 +412,24 @@ class EvalState(rx.State):
     conf_fp: str = ""
     conf_tn: str = ""
     hasil_md: str = ""
+    tambahan_ok: bool = False
+    benchmark_rows: list[dict] = []
+    roc_shift: dict = {}
+    candidate_rows: list[dict] = []
+    sensitivity_rows: list[dict] = []
+    www_effect: dict = {}
+    denylist_rows: list[dict] = []
+    limitations: list[str] = []
+
+    def _kosongkan_tambahan(self):
+        self.tambahan_ok = False
+        self.benchmark_rows = []
+        self.roc_shift = {}
+        self.candidate_rows = []
+        self.sensitivity_rows = []
+        self.www_effect = {}
+        self.denylist_rows = []
+        self.limitations = []
 
     @rx.var
     def trained_date(self) -> str:
@@ -128,6 +444,7 @@ class EvalState(rx.State):
             self.artefak_ok = False
             self.cv_data = []
             self.hasil_md = ""
+            self._kosongkan_tambahan()
             return
 
         self.artefak_ok = True
@@ -148,6 +465,28 @@ class EvalState(rx.State):
         if conf:
             self.conf_tp, self.conf_fn, self.conf_fp, self.conf_tn = (conf[k] for k in ("tp", "fn", "fp", "tn"))
         self.hasil_md = clean_report(hasil)
+
+        extra = (REALWORLD_PATH, MODEL_C_PATH, DENYLIST_PATH, T25_PATH)
+        if not all(path.exists() for path in extra):
+            self._kosongkan_tambahan()
+            return
+        try:
+            realworld = json.loads(REALWORLD_PATH.read_text(encoding="utf-8"))
+            model_c = json.loads(MODEL_C_PATH.read_text(encoding="utf-8"))
+            denylist = json.loads(DENYLIST_PATH.read_text(encoding="utf-8"))
+            t25 = json.loads(T25_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            self._kosongkan_tambahan()
+            return
+
+        self.benchmark_rows = build_benchmark_rows(metrics, realworld, hasil)
+        self.roc_shift = build_roc_shift(model_c)
+        self.candidate_rows = build_candidate_rows(t25)
+        self.sensitivity_rows = build_sensitivity_rows(model_c)
+        self.www_effect = build_www_effect(t25)
+        self.denylist_rows = build_denylist_rows(denylist)
+        self.limitations = build_limitations(model_c)
+        self.tambahan_ok = True
 
 
 # --- Komponen ---------------------------------------------------------------
@@ -427,12 +766,258 @@ def report_card() -> rx.Component:
     )
 
 
+def _mini_stat(label: str, value) -> rx.Component:
+    return rx.vstack(
+        muted(label, size="1"),
+        rx.text(value, style={"font_size": "1.5rem", "font_weight": "700", "line_height": "1.1"}),
+        align="start",
+        spacing="1",
+    )
+
+
+def _info_line(*parts) -> rx.Component:
+    return rx.hstack(
+        *(rx.text(part, size="1", style={"color": t.MUTED}) for part in parts),
+        wrap="wrap",
+        spacing="1",
+        width="100%",
+    )
+
+
+def _cell(value, align: str = "right", color: str | None = None) -> rx.Component:
+    style = {"text_align": align, "font_variant_numeric": "tabular-nums"}
+    if color:
+        style["color"] = color
+    return rx.table.cell(value, style=style)
+
+
+def benchmark_panel() -> rx.Component:
+    return card(
+        card_title("chart-bar", "Benchmark: tiga set yang berbeda"),
+        muted(
+            "Test set PhiUSIIL bukan dunia nyata. Dua baris berikut memakai set T18; "
+            "interval Wilson 95% ditampilkan apa adanya.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.vstack(
+            rx.foreach(
+                EvalState.benchmark_rows,
+                lambda row: rx.box(
+                    rx.text(row["set"], style={"font_weight": "700", "font_size": "1.05rem"}),
+                    rx.grid(
+                        _mini_stat("Precision", row["precision"]),
+                        _mini_stat("Recall", row["recall"]),
+                        _mini_stat("F1", row["f1"]),
+                        _mini_stat(
+                            "Salah (FP / FN)",
+                            rx.hstack(rx.text(row["fp"]), rx.text(" / "), rx.text(row["fn"]), spacing="1"),
+                        ),
+                        columns={"initial": "2", "md": "4"},
+                        spacing="3",
+                        width="100%",
+                    ),
+                    _info_line(
+                        "n=",
+                        row["n"],
+                        "· akurasi",
+                        row["accuracy"],
+                        "· FP-rate",
+                        row["fp_rate"],
+                        "· CI FP",
+                        row["fp_rate_ci"],
+                        "· CI recall",
+                        row["recall_ci"],
+                    ),
+                    width="100%",
+                    style={
+                        "border_bottom": f"1px solid {t.LINE}",
+                        "padding": "10px 0",
+                    },
+                ),
+            ),
+            spacing="1",
+            width="100%",
+        ),
+    )
+
+
+def roc_shift_panel() -> rx.Component:
+    return card(
+        card_title("activity", "Pergeseran distribusi: ROC-AUC"),
+        muted(
+            "Peringkat skor hampir sempurna di test set turun tajam pada URL dunia nyata "
+            "di luar allowlist. Ini pergeseran distribusi, bukan sekadar soal ambang.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.grid(
+            _mini_stat("Test set berkelompok", EvalState.roc_shift["test_roc_auc"]),
+            _mini_stat("Dunia nyata (not_in_allowlist)", EvalState.roc_shift["realworld_roc_auc"]),
+            _mini_stat("Selisih", EvalState.roc_shift["delta"]),
+            columns={"initial": "1", "sm": "3"},
+            spacing="3",
+            width="100%",
+        ),
+        _info_line("Kandidat", EvalState.roc_shift["candidate"], "· sumber docs/model_c.json"),
+    )
+
+
+def candidate_panel() -> rx.Component:
+    return card(
+        card_title("layers", "Kandidat T25: benar, salah, dan SUSPICIOUS"),
+        muted(
+            "Benar = TP+TN; salah = FP+FN. SUSPICIOUS dihitung terpisah, tidak dibuang ke legit.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.box(
+            rx.table.root(
+                rx.table.header(
+                    rx.table.row(
+                        _head("Kandidat"),
+                        _head("n", "right"),
+                        _head("Benar", "right"),
+                        _head("Salah", "right"),
+                        _head("TP", "right"),
+                        _head("FP", "right"),
+                        _head("FN", "right"),
+                        _head("TN", "right"),
+                        _head("SUSPICIOUS", "right"),
+                        _head("F1", "right"),
+                    )
+                ),
+                rx.table.body(
+                    rx.foreach(
+                        EvalState.candidate_rows,
+                        lambda row: rx.table.row(
+                            _cell(row["candidate"], "left"),
+                            _cell(row["n"]),
+                            _cell(row["benar"]),
+                            _cell(row["salah"]),
+                            _cell(row["tp"]),
+                            _cell(row["fp"]),
+                            _cell(row["fn"]),
+                            _cell(row["tn"]),
+                            _cell(row["suspicious"], color=t.YELLOW),
+                            _cell(row["f1"]),
+                        ),
+                    )
+                ),
+                width="100%",
+                variant="ghost",
+            ),
+            style={"overflow_x": "auto", "width": "100%"},
+        ),
+    )
+
+
+def tested_panel() -> rx.Component:
+    return card(
+        card_title("search", "Sudah diuji, bukan penjelasan tunggal"),
+        muted(
+            "Delta skor P(phishing) pada URL legit dari docs/model_c.json; "
+            "efek normalisasi www. dari docs/t25.json.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.grid(
+            _mini_stat("Δ F1 www.", EvalState.www_effect["delta_f1"]),
+            _mini_stat("Δ MCC www.", EvalState.www_effect["delta_mcc"]),
+            _mini_stat("Δ ROC-AUC www.", EvalState.www_effect["delta_roc_auc"]),
+            columns={"initial": "1", "sm": "3"},
+            spacing="3",
+            width="100%",
+        ),
+        rx.box(
+            rx.table.root(
+                rx.table.header(
+                    rx.table.row(
+                        _head("Kandidat"),
+                        _head("Transformasi"),
+                        _head("URL berubah", "right"),
+                        _head("Δ rata-rata", "right"),
+                        _head("Δ median", "right"),
+                        _head("Naik", "right"),
+                        _head("Turun", "right"),
+                    )
+                ),
+                rx.table.body(
+                    rx.foreach(
+                        EvalState.sensitivity_rows,
+                        lambda row: rx.table.row(
+                            _cell(row["candidate"], "left"),
+                            _cell(row["transform"], "left"),
+                            _cell(row["urls_changed"]),
+                            _cell(row["mean_delta"]),
+                            _cell(row["median_delta"]),
+                            _cell(row["increased"]),
+                            _cell(row["decreased"]),
+                        ),
+                    )
+                ),
+                width="100%",
+                variant="ghost",
+            ),
+            style={"overflow_x": "auto", "width": "100%", "margin_top": "14px"},
+        ),
+    )
+
+
+def denylist_panel() -> rx.Component:
+    return card(
+        card_title("shield", "Denylist: umur, tumpang tindih, dan dampaknya"),
+        muted(
+            "Angka dari docs/denylist.json. Sistem penuh diuji dengan denylist dimatikan "
+            "atau memakai snapshot eksternal.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.vstack(
+            rx.foreach(
+                EvalState.denylist_rows,
+                lambda row: rx.hstack(
+                    rx.text(row["label"], size="1", style={"font_weight": "600"}),
+                    rx.spacer(),
+                    rx.text(row["value"], size="1", style={"color": t.MUTED, "text_align": "right"}),
+                    width="100%",
+                    wrap="wrap",
+                    spacing="2",
+                    style={"border_bottom": f"1px solid {t.LINE}", "padding": "6px 0"},
+                ),
+            ),
+            spacing="0",
+            width="100%",
+        ),
+    )
+
+
+def limitations_panel() -> rx.Component:
+    return card(
+        card_title("triangle-alert", "Keterbatasan yang jujur"),
+        muted("Dibaca langsung dari docs/model_c.json.", size="1", style={"margin_top": "6px", "margin_bottom": "12px"}),
+        rx.vstack(
+            rx.foreach(
+                EvalState.limitations,
+                lambda item: rx.hstack(
+                    rx.text("•", style={"color": t.P5_RED, "font_weight": "700"}),
+                    rx.text(item, size="1"),
+                    align="start",
+                    spacing="2",
+                    width="100%",
+                ),
+            ),
+            spacing="2",
+            width="100%",
+        ),
+    )
+
+
 def loaded_view() -> rx.Component:
     return rx.vstack(
         rx.callout(
-            "Metrik di halaman ini adalah metrik model-only pada test set PhiUSIIL. "
-            "Lapisan reputasi offline (allowlist) menurunkan false positive dunia nyata "
-            "tanpa mengubah test set; lihat hasil cek URL di halaman utama.",
+            "Halaman ini membedakan test set PhiUSIIL dan uji dunia nyata, sebelum dan "
+            "sesudah lapisan reputasi. Semua angka dibaca dari artefak evaluasi, bukan diketik manual.",
             icon="info",
             color_scheme="blue",
             style={"width": "100%"},
@@ -470,6 +1055,23 @@ def loaded_view() -> rx.Component:
             cv_table(),
         ),
         report_card(),
+        rx.cond(
+            EvalState.tambahan_ok,
+            rx.vstack(
+                benchmark_panel(),
+                roc_shift_panel(),
+                candidate_panel(),
+                tested_panel(),
+                denylist_panel(),
+                limitations_panel(),
+                spacing="4",
+                width="100%",
+            ),
+            muted(
+                "Artefak diagnostik belum ada. Jalankan skrip evaluasi v2 agar "
+                "docs/realworld.json, docs/model_c.json, docs/t25.json, dan docs/denylist.json tersedia."
+            ),
+        ),
         rx.hstack(
             muted("Dilatih pada", size="1"),
             muted(EvalState.trained_date, size="1"),
