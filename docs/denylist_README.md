@@ -32,6 +32,23 @@ PHISHGUARD_FEED_MAX_AGE_HOURS=24
 ```powershell
 uv run python scripts/eval_denylist.py
 ```
-Hasil ke `docs/denylist.json` (tanpa URL): capture rate pada URL baru di snapshot
-B (dengan CI Wilson 95%), capture pada snapshot A (batas atas, tidak bermakna),
-dan false positive pada `legit_dev`/`legit_final` (seharusnya 0).
+Hasil ke `docs/denylist.json` (tanpa URL).
+
+### Metrik T19b
+- **Tumpang tindih**: antar pasangan snapshot terurut (A→B, A→C, …) — overlap proporsi
+  URL, host, dan domain (www. di-stripping), plus jumlah URL baru di snapshot B.
+- **Kurva umur entri**: untuk snapshot pertama, % entri yang masih muncul di snapshot
+  berikutnya + selang waktu antar snapshot (jam).
+- **False positive**: denylist pada `legit_dev`/`legit_final` (seharusnya 0).
+
+### Evaluasi sistem penuh (aturan)
+Evaluasi sistem penuh (`full_system`) **hanya** dijalankan dengan salah satu:
+1. denylist **dimatikan**, atau
+2. denylist memakai **snapshot yang bukan sumber set uji** (bukan `data/realworld/openphish.txt`).
+
+Aturan ini ditulis di `docs/denylist.json` (`full_system.rule`) dan di sini.
+Mod yang dijalankan: `denylist_disabled`, `denylist_external_snapshot`.
+
+### Output JSON (`docs/denylist.json`)
+Tanpa URL. Berisi: `generated_at`, `snapshots` (nama + jumlah URL), `overlap` (per pasangan),
+`age_curve`, `false_positives`, `full_system`. Semua angka dari skrip.

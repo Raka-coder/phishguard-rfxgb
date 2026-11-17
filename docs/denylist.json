@@ -1,27 +1,65 @@
 {
-  "generated_at": "2026-11-17T08:32:04.131094+00:00",
-  "snapshot_a": "openphish.txt",
-  "snapshot_b": "openphish-20261117-083111.txt",
-  "n_a": 300,
-  "n_b": 300,
-  "n_overlap_a_b": 1,
-  "n_new_in_b": 299,
-  "capture_on_new_in_b": {
-    "n": 0,
-    "total": 299,
-    "rate": 0.0,
-    "wilson_ci_95": [
-      0.0,
-      0.012684719046240528
-    ]
-  },
-  "capture_on_a_upper_bound": {
-    "n": 300,
-    "total": 300,
-    "rate": 1.0,
-    "label": "batas atas (trivial, tidak bermakna): denylist dievaluasi pada data yang membentuknya"
-  },
+  "generated_at": "2026-11-17T08:44:14.983417+00:00",
+  "snapshots": [
+    {
+      "name": "openphish.txt",
+      "n_urls": 300
+    },
+    {
+      "name": "openphish-20261117-083100.txt",
+      "n_urls": 300
+    },
+    {
+      "name": "openphish-20261117-083111.txt",
+      "n_urls": 300
+    }
+  ],
+  "overlap": [
+    {
+      "n_urls_a": 300,
+      "n_urls_b": 300,
+      "n_url_overlap": 1,
+      "n_url_overlap_pct_of_b": 0.33,
+      "n_host_overlap": 8,
+      "n_host_overlap_pct_of_b": 2.97,
+      "n_domain_overlap": 12,
+      "n_domain_overlap_pct_of_b": 4.55,
+      "n_new_in_b": 299,
+      "snapshot_a": "openphish.txt",
+      "snapshot_b": "openphish-20261117-083100.txt",
+      "hours_between_snapshots": 9.61
+    },
+    {
+      "n_urls_a": 300,
+      "n_urls_b": 300,
+      "n_url_overlap": 300,
+      "n_url_overlap_pct_of_b": 100.0,
+      "n_host_overlap": 269,
+      "n_host_overlap_pct_of_b": 100.0,
+      "n_domain_overlap": 264,
+      "n_domain_overlap_pct_of_b": 100.0,
+      "n_new_in_b": 0,
+      "snapshot_a": "openphish-20261117-083100.txt",
+      "snapshot_b": "openphish-20261117-083111.txt",
+      "hours_between_snapshots": 0.003
+    }
+  ],
+  "age_curve": [
+    {
+      "snapshot": "openphish.txt",
+      "later_snapshot": "openphish-20261117-083100.txt",
+      "pct_still_present": 0.33,
+      "hours_between_snapshots": 9.61
+    },
+    {
+      "snapshot": "openphish.txt",
+      "later_snapshot": "openphish-20261117-083111.txt",
+      "pct_still_present": 0.33,
+      "hours_between_snapshots": 9.613
+    }
+  ],
   "false_positives": {
+    "denylist_snapshot": "openphish.txt",
     "legit_dev": {
       "n_tested": 103,
       "n_fp": 0
@@ -29,6 +67,55 @@
     "legit_final": {
       "n_tested": 34,
       "n_fp": 0
+    }
+  },
+  "full_system": {
+    "rule": "Evaluasi sistem penuh hanya boleh dijalankan dengan denylist dimatikan atau memakai snapshot yang bukan sumber set uji.",
+    "modes_run": [
+      "denylist_disabled",
+      "denylist_external_snapshot"
+    ],
+    "results": {
+      "denylist_disabled": {
+        "legit_dev": {
+          "n_tested": 103,
+          "verdicts": {
+            "PHISHING": 0,
+            "SUSPICIOUS": 101,
+            "LEGITIMATE": 2
+          },
+          "n_fp": 0
+        },
+        "legit_final": {
+          "n_tested": 34,
+          "verdicts": {
+            "PHISHING": 0,
+            "SUSPICIOUS": 29,
+            "LEGITIMATE": 5
+          },
+          "n_fp": 0
+        }
+      },
+      "denylist_external_snapshot": {
+        "legit_dev": {
+          "n_tested": 103,
+          "verdicts": {
+            "PHISHING": 0,
+            "SUSPICIOUS": 101,
+            "LEGITIMATE": 2
+          },
+          "n_fp": 0
+        },
+        "legit_final": {
+          "n_tested": 34,
+          "verdicts": {
+            "PHISHING": 0,
+            "SUSPICIOUS": 29,
+            "LEGITIMATE": 5
+          },
+          "n_fp": 0
+        }
+      }
     }
   }
 }

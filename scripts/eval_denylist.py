@@ -1,11 +1,15 @@
-"""Evaluasi denylist: bangun dari snapshot A, uji pada snapshot B dan pada A sendiri.
+"""Evaluasi denylist: overlap antar snapshot, kurva umur entri, FP, evaluasi sistem penuh.
 
-Penggunaan (butuh >=2 snapshot di data/feeds/):
+Penggunaan:
     uv run python scripts/eval_denylist.py
-    uv run python scripts/eval_denylist.py --snapshot-a data/feeds/x.txt --snapshot-b data/feeds/y.txt
+    uv run python scripts/eval_denylist.py --snapshot-a X --snapshot-b Y
 
-Hasil ditulis ke docs/denylist.json (tanpa URL). Tingkat tangkapan dilaporkan dengan
-CI Wilson 95%. Snapshot A pada dirinya sendiri adalah batas atas yang tidak bermakna.
+Metrik utama diganti dari "capture URL baru": kini memakai tumpang tindih
+URL/host/domain antar snapshot terurut + kurva umur entri (persentase entri
+snapshot pertama yang masih muncul di snapshot berikutnya) + selang waktu antar
+snapshot (jam).
+
+Hasil ditulis ke docs/denylist.json (tanpa URL). Semua angka dari skrip.
 """
 
 import argparse
@@ -18,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import DOCS_DIR, FEED_DIR
-from src.denylist import _parse_feed, normalize_url
+from src.denylist import normalize_url
 
 Z_95 = 1.959963984540054
 
@@ -56,21 +60,123 @@ def read_urls(path: Path) -> list[str]:
     return urls
 
 
-def latest_two_snapshots(feed_dir: Path) -> tuple[Path, Path]:
-    candidates: list[Path] = []
+def host_of_key(key: str) -> str:
+    """Key 'host/path' -> host."""
+    return key.split("/", 1)[0]
+
+
+def domain_of_host(host: str) -> str:
+    """Host -> domain (www. di-stripping), konsisten dengan fitur host Model C."""
+    return host[len("www.") :] if host.startswith("www.") else host
+
+
+def pct(part: int, whole: int) -> float:
+    return round(part / whole * 100, 2) if whole > 0 else 0.0
+
+
+def overlap_between(keys_a: set[str], keys_b: set[str]) -> dict:
+    """Tumpang tindih antar snapshot: URL, host, domain + jumlah baru di B."""
+    inter = keys_a & keys_b
+    hosts_a = {host_of_key(k) for k in keys_a}
+    hosts_b = {host_of_key(k) for k in keys_b}
+    domains_a = {domain_of_host(h) for h in hosts_a}
+    domains_b = {domain_of_host(h) for h in hosts_b}
+    n_b = len(keys_b)
+    return {
+        "n_urls_a": len(keys_a),
+        "n_urls_b": len(keys_b),
+        "n_url_overlap": len(inter),
+        "n_url_overlap_pct_of_b": pct(len(inter), n_b),
+        "n_host_overlap": len(hosts_a & hosts_b),
+        "n_host_overlap_pct_of_b": pct(len(hosts_a & hosts_b), len(hosts_b)),
+        "n_domain_overlap": len(domains_a & domains_b),
+        "n_domain_overlap_pct_of_b": pct(len(domains_a & domains_b), len(domains_b)),
+        "n_new_in_b": len(keys_b - keys_a),
+    }
+
+
+def collect_snapshots(feed_dir: Path, extra: list[Path] | None = None) -> list[Path]:
+    cands: list[Path] = []
     if feed_dir.exists():
-        candidates += [p for p in feed_dir.iterdir() if p.is_file() and p.suffix.lower() in {".txt", ".csv"}]
-    # snapshot lama dari set uji dunia nyata (jika ada) agar perbandingan bermakna
-    legacy = Path("data/realworld/openphish.txt")
-    if legacy.exists():
-        candidates.append(legacy)
-    candidates = sorted(set(candidates), key=lambda p: p.stat().st_mtime)
-    if len(candidates) < 2:
-        raise SystemExit(
-            f"Perlu >=2 snapshot. Jalankan `uv run python scripts/sync_feeds.py` minimal dua kali "
-            "(atau sediakan data/realworld/openphish.txt) lalu ulangi."
+        cands += [p for p in feed_dir.iterdir() if p.is_file() and p.suffix.lower() in {".txt", ".csv"}]
+    for e in (extra or []):
+        if e.exists():
+            cands.append(e)
+    return sorted(set(cands), key=lambda p: p.stat().st_mtime)
+
+
+def age_curve(snapshots: list[Path]) -> list[dict]:
+    """Untuk snapshot pertama: % entri yang masih muncul di snapshot berikutnya + selang waktu (jam)."""
+    if len(snapshots) < 2:
+        return []
+    first = snapshots[0]
+    keys_a = {normalize_url(u) for u in read_urls(first) if normalize_url(u)}
+    entries = []
+    for later in snapshots[1:]:
+        keys_b = {normalize_url(u) for u in read_urls(later) if normalize_url(u)}
+        hours = (later.stat().st_mtime - first.stat().st_mtime) / 3600.0
+        entries.append(
+            {
+                "snapshot": first.name,
+                "later_snapshot": later.name,
+                "pct_still_present": pct(len(keys_a & keys_b), len(keys_a)),
+                "hours_between_snapshots": round(hours, 3),
+            }
         )
-    return candidates[0], candidates[-1]
+    return entries
+
+
+def _fp_on_legit(deny_keys: set[str], legit_path: Path) -> tuple[int, int]:
+    if not legit_path.exists():
+        return 0, 0
+    urls = read_urls(legit_path)
+    fp = sum(1 for u in urls if normalize_url(u) is not None and normalize_url(u) in deny_keys)
+    return len(urls), fp
+
+
+def run_full_system(args: argparse.Namespace, denylist_external: Path | None, source_snapshot: Path) -> dict:
+    """Evaluasi sistem penuh: denylist dimatikan, atau memakai snapshot non-sumber set uji."""
+    import src.predict as predict
+
+    results: dict[str, dict] = {}
+
+    def evaluate(deny_keys: set[str] | None, mode: str) -> dict:
+        out: dict[str, dict] = {}
+        for label, legit_path in (("legit_dev", args.legit_dev), ("legit_final", args.legit_final)):
+            urls = read_urls(legit_path)
+            verdicts = {"PHISHING": 0, "SUSPICIOUS": 0, "LEGITIMATE": 0}
+            n_fp = 0
+            for u in urls:
+                if deny_keys is None:
+                    predict.feed_status = lambda: ("missing", None, "eval: denylist dimatikan")
+                    predict.is_denied = lambda u: False  # noqa: E731 - eval only
+                else:
+                    predict.feed_status = lambda p=denylist_external: ("ok", p, "eval: snapshot eksternal")  # noqa: E731
+                    predict.is_denied = (  # noqa: E731
+                        lambda kk: (lambda u: (normalize_url(u) is not None and normalize_url(u) in kk))  # noqa: E731
+                    )(deny_keys)
+                r = predict.predict_url(u)
+                verdict = str(r.get("verdict") or "LEGITIMATE")
+                verdicts[verdict] = verdicts.get(verdict, 0) + 1
+                if verdict == "PHISHING":
+                    n_fp += 1
+            out[label] = {"n_tested": len(urls), "verdicts": verdicts, "n_fp": n_fp}
+        return out
+
+    results["denylist_disabled"] = evaluate(None, "denylist_disabled")
+    modes = ["denylist_disabled"]
+    if denylist_external is not None and denylist_external.resolve() != source_snapshot.resolve():
+        modes.append("denylist_external_snapshot")
+        results["denylist_external_snapshot"] = evaluate(
+            {normalize_url(u) for u in read_urls(denylist_external) if normalize_url(u)},
+            "denylist_external_snapshot",
+        )
+
+    return {
+        "rule": "Evaluasi sistem penuh hanya boleh dijalankan dengan denylist dimatikan atau memakai snapshot yang bukan sumber set uji.",
+        "modes_run": modes,
+        "results": results,
+    }
 
 
 def main() -> int:
@@ -82,69 +188,54 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=DOCS_DIR / "denylist.json")
     args = parser.parse_args()
 
-    if args.snapshot_a is None or args.snapshot_b is None:
-        a, b = latest_two_snapshots(FEED_DIR)
+    if args.snapshot_a is not None and args.snapshot_b is not None:
+        seq = [args.snapshot_a, args.snapshot_b]
     else:
-        a, b = args.snapshot_a, args.snapshot_b
+        seq = collect_snapshots(FEED_DIR, extra=[Path("data/realworld/openphish.txt")])
 
-    if not a.exists() or not b.exists():
-        raise SystemExit(f"Snapshot tidak ditemukan: {a} / {b}")
+    if len(seq) < 2 or not seq[0].exists() or not seq[1].exists():
+        raise SystemExit(
+            f"Perlu >=2 snapshot. Jalankan `uv run python scripts/sync_feeds.py` minimal dua kali "
+            "(atau sediakan data/realworld/openphish.txt) lalu ulangi."
+        )
 
-    deny_set = _parse_feed(a)
-    urls_a = read_urls(a)
-    urls_b = read_urls(b)
+    keys_by: dict[str, set[str]] = {}
+    snapshots_info = []
+    for p in seq:
+        keys = {normalize_url(u) for u in read_urls(p) if normalize_url(u)}
+        keys_by[p.name] = keys
+        snapshots_info.append({"name": p.name, "n_urls": len(keys)})
 
-    set_a_keys = {normalize_url(u) for u in urls_a if normalize_url(u) is not None}
-    new_in_b = [u for u in urls_b if normalize_url(u) not in set_a_keys]
+    overlap: list[dict] = []
+    for a, b in zip(seq, seq[1:]):
+        entry = overlap_between(keys_by[a.name], keys_by[b.name])
+        entry["snapshot_a"] = a.name
+        entry["snapshot_b"] = b.name
+        entry["hours_between_snapshots"] = round((b.stat().st_mtime - a.stat().st_mtime) / 3600.0, 3)
+        overlap.append(entry)
 
-    # capture pada URL baru di B
-    k_new = sum(1 for u in new_in_b if normalize_url(u) in deny_set)
-    n_new = len(new_in_b)
+    age = age_curve(seq)
 
-    # capture pada A sendiri (batas atas, trivial)
-    k_a = sum(1 for u in urls_a if normalize_url(u) in deny_set)
-    n_a = len(urls_a)
+    deny_set = keys_by[seq[0].name]
+    dev_tested, dev_fp = _fp_on_legit(deny_set, args.legit_dev)
+    final_tested, final_fp = _fp_on_legit(deny_set, args.legit_final)
 
-    # overlap A/B (informasi)
-    keys_b = {normalize_url(u) for u in urls_b if normalize_url(u) is not None}
-    n_overlap = len(set_a_keys & keys_b)
+    source_snapshot = Path("data/realworld/openphish.txt")
+    denylist_external = seq[-1] if seq[-1].resolve() != source_snapshot.resolve() else None
 
-    # FP pada legit
-    def fp_count(path: Path) -> tuple[int, int]:
-        if not path.exists():
-            return 0, 0
-        urls = read_urls(path)
-        tested = len(urls)
-        fp = sum(1 for u in urls if normalize_url(u) in deny_set)
-        return tested, fp
-
-    dev_tested, dev_fp = fp_count(args.legit_dev)
-    final_tested, final_fp = fp_count(args.legit_final)
+    full_system = run_full_system(args, denylist_external, source_snapshot)
 
     result = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "snapshot_a": a.name,
-        "snapshot_b": b.name,
-        "n_a": n_a,
-        "n_b": len(urls_b),
-        "n_overlap_a_b": n_overlap,
-        "n_new_in_b": n_new,
-        "capture_on_new_in_b": {
-            "n": k_new,
-            "total": n_new,
-            "rate": (k_new / n_new) if n_new else 0.0,
-            "wilson_ci_95": wilson_ci(k_new, n_new),
-        },
-        "capture_on_a_upper_bound": {
-            "n": k_a,
-            "total": n_a,
-            "rate": (k_a / n_a) if n_a else 0.0,
-            "label": "batas atas (trivial, tidak bermakna): denylist dievaluasi pada data yang membentuknya",
-        },
+        "snapshots": snapshots_info,
+        "overlap": overlap,
+        "age_curve": age,
         "false_positives": {
+            "denylist_snapshot": seq[0].name,
             "legit_dev": {"n_tested": dev_tested, "n_fp": dev_fp},
             "legit_final": {"n_tested": final_tested, "n_fp": final_fp},
         },
+        "full_system": full_system,
     }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
