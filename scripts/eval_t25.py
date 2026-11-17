@@ -16,6 +16,12 @@ import numpy as np
 from sklearn.metrics import roc_auc_score
 
 from scripts.eval_realworld import load_rows, metrics, wilson_interval
+from scripts.diagnose_realworld import (
+    flipped_scheme,
+    toggled_trailing_slash,
+    with_www,
+    without_path_query,
+)
 from scripts.prepare_legit_user import host_type
 from scripts.train_t25 import JSON_PATH, consensus_proba, phishing_proba
 from src.config import LABEL_LEGIT, LABEL_PHISH, THRESHOLD
@@ -44,6 +50,10 @@ def score_block(y_true, proba):
     block["roc_auc"] = round(float(roc_auc_score((np.asarray(y_true) == LABEL_PHISH).astype(int), proba)), 4)
     block["specificity_ci95"] = wilson_interval(block["tn"], block["tn"] + block["fp"])
     block["recall_ci95"] = wilson_interval(block["tp"], block["tp"] + block["fn"])
+    block["specificity_strict"] = block["specificity"]
+    block["specificity_loose"] = block["specificity"]
+    block["recall_terjaring"] = block["recall"]
+    block["legit_suspicious_pct"] = 0.0
     return block
 
 
@@ -55,6 +65,21 @@ def consensus_block(y_true, p_b, p_c):
     block["recall_ci95"] = wilson_interval(block["tp"], block["tp"] + block["fn"])
     block["suspicious_pct"] = susp_pct
     block["suspicious_n"] = int(np.sum(verdict == "SUSPICIOUS"))
+    y = np.asarray(y_true, dtype=int)
+    phishing_mask = y == LABEL_PHISH
+    legit_mask = ~phishing_mask
+    suspicious_phishing = int(np.sum((verdict == "SUSPICIOUS") & phishing_mask))
+    suspicious_legit = int(np.sum((verdict == "SUSPICIOUS") & legit_mask))
+    recall_terjaring = round(float(np.mean((verdict[phishing_mask] != "LEGITIMATE"))), 4) if phishing_mask.any() else None
+    specificity_strict = round(float(np.mean(verdict[legit_mask] == "LEGITIMATE")), 4) if legit_mask.any() else None
+    specificity_loose = block["specificity"]
+    legit_suspicious_pct = round(float(np.mean(verdict[legit_mask] == "SUSPICIOUS") * 100), 2) if legit_mask.any() else 0.0
+    block["recall_terjaring"] = recall_terjaring
+    block["specificity_strict"] = specificity_strict
+    block["specificity_loose"] = specificity_loose
+    block["legit_suspicious_pct"] = legit_suspicious_pct
+    block["suspicious_phishing_n"] = suspicious_phishing
+    block["suspicious_legit_n"] = suspicious_legit
     return block
 
 
@@ -98,11 +123,13 @@ def evaluate_set(urls, labels, in_allow, host_types):
         "n_in_allowlist": int(in_allow.sum()),
         "n_not_in_allowlist": int((~in_allow).sum()),
         "groups": {},
+        "candidates": {},
     }
     for name, mask in groups.items():
         block = group_candidate_metrics(y, p_b, p_c, mask)
         if block is not None:
             result["groups"][name] = block
+    result["candidates"] = result["groups"].get("all", {})
     return result
 
 
@@ -172,6 +199,22 @@ def render_markdown(payload):
         f"PhiUSIIL berkelompok, dan set dev. Rekomendasi: **`{payload['selection']['selected']}`** "
         f"({payload['selection']['criterion']}).",
         "",
+        "## Aturan keputusan (T25b)",
+        "",
+        f"Syarat lantai recall test PhiUSIIL grouped: {payload.get('decision_rule', {}).get('floor_recall_grouped_test', '—')}.",
+        f"Lolos: {', '.join(payload.get('decision_rule', {}).get('eligible_by_floor', [])) or '—'}.",
+        f"Terpilih: **`{payload.get('selection', {}).get('selected')}`**.",
+        "",
+        "Robustness (rata-rata perubahan skor/verdict; makin kecil makin tahan):",
+        "",
+        "| Kandidat | Robustness |",
+        "|---|---|",
+    ]
+    for name in ("B_refit", "C_host", "consensus"):
+        value = payload.get("decision_rule", {}).get("robustness", {}).get(name, "—")
+        lines.append(f"| `{name}` | {value} |")
+    lines += [
+        "",
         "## Efek normalisasi www. pada C_host",
         "",
         "| Varian C_host | Test F1 | Test MCC | Test ROC-AUC |",
@@ -232,15 +275,16 @@ def render_markdown(payload):
                 f"{split_data['n_root']} root, {split_data['n_berpath']} berpath; "
                 f"{split_data['n_in_allowlist']} in allowlist, {split_data['n_not_in_allowlist']} not).",
                 "",
-                "| Kandidat | Precision | Recall (95% CI) | F1 | MCC | Specificity (95% CI) | Suspicious % |",
-                "|---|---|---|---|---|---|---|",
+                "| Kandidat | Precision | Recall (95% CI) | F1 | MCC | Spec ketat | Spec longgar | Recall-terjaring | Legit SUSP % | Suspicious % |",
+                "|---|---|---|---|---|---|---|---|---|---|",
             ]
             for name in ("B_refit", "C_host", "consensus"):
                 block = split_data["candidates"][name]["all"]
                 lines.append(
                     f"| `{name}` | {_fmt(block['precision'])} | {_fmt(block['recall'])} "
                     f"({_ci(block['recall_ci95'])}) | {_fmt(block['f1'])} | {_fmt(block['mcc'])} | "
-                    f"{_fmt(block['specificity'])} ({_ci(block['specificity_ci95'])}) | "
+                    f"{_fmt(block.get('specificity_strict'))} | {_fmt(block.get('specificity_loose'))} | "
+                    f"{_fmt(block.get('recall_terjaring'))} | {_fmt(block.get('legit_suspicious_pct'))} | "
                     f"{_fmt(block.get('suspicious_pct'))} |"
                 )
             lines += [
@@ -293,15 +337,62 @@ def render_markdown(payload):
     return "\n".join(lines)
 
 
-def main():
+TRANSFORMS = {
+    "no_path_query": without_path_query,
+    "scheme_flip": flipped_scheme,
+    "www_prefix": with_www,
+    "trailing_slash": toggled_trailing_slash,
+}
+
+
+def transform_robustness(urls, p_b_orig, p_c_orig, verdict_orig, tld_old, tld_new, pipe_b, pipe_c):
+    deltas = {"B_refit": [], "C_host": [], "consensus": []}
+    for transform, fn in TRANSFORMS.items():
+        values = [fn(u) for u in urls]
+        pb = phishing_proba(pipe_b, to_frame(values, tld_old["map"], tld_old["default"]))
+        pc = phishing_proba(pipe_c, to_host_frame(values, tld_new["map"], tld_new["default"], strip_www=True))
+        deltas["B_refit"].append(float(np.mean(np.abs(pb - p_b_orig))))
+        deltas["C_host"].append(float(np.mean(np.abs(pc - p_c_orig))))
+        v, _, _ = consensus_proba(pb, pc)
+        deltas["consensus"].append(float(np.mean(v != verdict_orig)))
+    return {key: round(float(np.mean(value)), 4) for key, value in deltas.items()}
+
+
+def apply_decision(dev_result, train, robustness, floor_recall):
+    eligible = [
+        name
+        for name in ("B_refit", "C_host", "consensus")
+        if (train["test_grouped"].get(name, {}).get("recall") or 0) >= floor_recall
+    ]
+    pool = eligible if eligible else ["B_refit", "C_host", "consensus"]
+    best = max(
+        pool,
+        key=lambda name: (
+            dev_result["candidates"].get(name, {}).get("all", {}).get("mcc") or -10,
+            -robustness.get(name, 99),
+        ),
+    )
+    return best, eligible, pool
+
+
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evaluasi T25b")
+    parser.add_argument("--finalize", action="store_true", help="evaluasi set final satu kali")
+    parser.add_argument("--force-final", action="store_true", help="paksa evaluasi ulang final")
+    parser.add_argument("--floor-recall", type=float, default=0.95, help="syarat lantai recall PhiUSIIL grouped")
+    args = parser.parse_args(argv)
+
     if not JSON_PATH.exists():
         print("Jalankan scripts/train_t25.py dulu.")
         return 2
     payload = json.loads(JSON_PATH.read_text(encoding="utf-8"))
     payload["evaluated_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # Real-world sets
-    realworld = {"available": False}
+    # Real-world dev evaluation
+    realworld = payload.get("evaluation", {}).get("realworld", {"available": False})
+    dev_result = None
     if LEGIT_DEV.exists() and LEGIT_FINAL.exists():
         dev_legit = load_rows(LEGIT_DEV)
         final_legit = load_rows(LEGIT_FINAL)
@@ -315,12 +406,19 @@ def main():
             return urls, labels, in_allow, types
 
         dev_urls, dev_labels, dev_allow, dev_types = make_set(dev_legit, dev_phish)
-        final_urls, final_labels, final_allow, final_types = make_set(final_legit, final_phish)
+        tld_old = load_tld(DEFAULT_TLD_OLD)
+        tld_new = load_tld(DEFAULT_TLD_NEW)
+        pipe_b = joblib.load(B_REFIT_PATH)
+        pipe_c = joblib.load(C_HOST_PATH)
+        p_b_dev = phishing_proba(pipe_b, to_frame(dev_urls, tld_old["map"], tld_old["default"]))
+        p_c_dev = phishing_proba(pipe_c, to_host_frame(dev_urls, tld_new["map"], tld_new["default"], strip_www=True))
+        verdict_dev, _, _ = consensus_proba(p_b_dev, p_c_dev)
+        robustness = transform_robustness(dev_urls, p_b_dev, p_c_dev, verdict_dev, tld_old, tld_new, pipe_b, pipe_c)
 
+        dev_result = evaluate_set(dev_urls, dev_labels, dev_allow, dev_types)
         realworld = {
             "available": True,
-            "dev": evaluate_set(dev_urls, dev_labels, dev_allow, dev_types),
-            "final": evaluate_set(final_urls, final_labels, final_allow, final_types),
+            "dev": dev_result,
             "openphish_split": {
                 "total": 300,
                 "dev_phishing": len(dev_phish),
@@ -328,39 +426,76 @@ def main():
                 "seed": 42,
             },
         }
+        if "final" in payload.get("evaluation", {}).get("realworld", {}):
+            realworld["final"] = payload["evaluation"]["realworld"]["final"]
+
+        best, eligible, pool = apply_decision(dev_result, payload["train"], robustness, args.floor_recall)
+        payload["evaluation"] = {"realworld": realworld}
+        payload["decision_rule"] = {
+            "floor_recall_grouped_test": args.floor_recall,
+            "primary": "MCC tertinggi pada set dev dunia nyata",
+            "tie_break": "ketahanan sensitivitas (perubahan skor/verdict terkecil)",
+            "eligible_by_floor": eligible,
+            "pool": pool,
+            "robustness": robustness,
+        }
+        payload["selection"] = {
+            "selected": best,
+            "criterion": (
+                f"floor recall grouped test >= {args.floor_recall}; "
+                "MCC tertinggi pada set dev; tie-break ketahanan sensitivitas"
+            ),
+            "realworld_available": True,
+        }
+        print(f"Kandidat lolos floor: {eligible}")
+        print(f"Terpilih: {best}")
     else:
         realworld = {
             "available": False,
             "reason": "legit_dev.csv/legit_final.csv belum ada (jalankan T24a).",
         }
+        payload["evaluation"] = {"realworld": realworld}
 
-    payload["evaluation"] = {"realworld": realworld}
     payload["train"] = {
         "cv_grouped": payload.get("cv_grouped", {}),
         "test_grouped": payload.get("test_grouped", {}),
         "www_normalization_effect": payload.get("www_normalization_effect", {}),
     }
     payload["t24a_aggregate"] = payload.get("t24a_aggregate", t24a_aggregate())
-    payload["selection"] = {
-        "selected": "B_refit",
-        "criterion": "F1 phishing rata-rata CV train berkelompok (tie-break MCC); test PhiUSIIL berkelompok dan set dev juga dilaporkan.",
-        "realworld_available": realworld.get("available", False),
-    }
+
+    # Final evaluation: only once unless forced
+    if args.finalize:
+        if "final" in payload.get("evaluation", {}).get("realworld", {}) and not args.force_final:
+            print("Set final sudah dievaluasi sebelumnya; gunakan --force-final untuk mengulang.")
+        elif not LEGIT_FINAL.exists():
+            print(f"File tidak ditemukan: {LEGIT_FINAL}")
+            return 2
+        else:
+            final_legit = load_rows(LEGIT_FINAL)
+            _, final_phish = build_openphish_split()
+            final_urls = [r["url"].strip() for r in final_legit] + list(final_phish)
+            final_labels = np.array([LABEL_LEGIT] * len(final_legit) + [LABEL_PHISH] * len(final_phish), dtype=int)
+            final_allow = np.array([is_trusted(host_of(u)) for u in final_urls])
+            final_types = np.array([host_type(u) for u in final_urls])
+            final_result = evaluate_set(final_urls, final_labels, final_allow, final_types)
+            payload["evaluation"]["realworld"]["final"] = final_result
+            payload["evaluation"]["realworld"]["available"] = True
+            print(f"Final dievaluasi: n={final_result['n']}")
+
     payload["limitations"] = [
         "C_host kehilangan informasi path/query/skema, sehingga recall di PhiUSIIL lebih rendah.",
         "Aturan kesepakatan menghasilkan banyak SUSPICIOUS; proporsinya dilaporkan.",
         "Set legit dev/final pribadi dan kecil; interval kepercayaan lebar.",
         "Normalisasi www. mengubah host dan tabel TLD; efeknya dilaporkan, tetapi tidak ada tuning.",
         "Pemilihan tidak memakai set final.",
+        f"Syarat lantai recall grouped test: {args.floor_recall}.",
     ]
 
     JSON_PATH.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     DOC_PATH.write_text(render_markdown(payload), encoding="utf-8")
-    print(f"T24a tersedia: {realworld.get('available')}")
     if realworld.get("available"):
-        for split in ("dev", "final"):
-            data = realworld[split]
-            print(f"{split}: n={data['n']}, legit={data['n_legit']}, phishing={data['n_phishing']}")
+        print(f"Dev: n={realworld['dev']['n']}, legit={realworld['dev']['n_legit']}, phishing={realworld['dev']['n_phishing']}")
+    print(f"T24a tersedia: {payload['t24a_aggregate'].get('available')}")
     print(f"Ditulis: {JSON_PATH.relative_to(ROOT)} dan {DOC_PATH.relative_to(ROOT)}")
     return 0
 

@@ -55,3 +55,22 @@ Rincian per kelompok:
 - Tidak mengubah `src/predict.py`, API, UI, atau `src/model.pkl`.
 - `legit_dev`/`legit_final` bersifat pribadi dan gitignored.
 - Set legit T18/T24a kecil; interval kepercayaan lebar.
+
+## 7. Aturan keputusan (T25b)
+
+Aturan ini diterapkan pada hasil set dev dunia nyata, sebelum set final dilihat.
+
+1. Kandidat yang lolos harus memiliki recall pada test PhiUSIIL berkelompok
+   >= 0,95.
+2. Di antara yang lolos, pilih MCC tertinggi pada set dev dunia nyata.
+3. Tie-break: ketahanan sensitivitas, yaitu perubahan skor/verdict terkecil pada
+   variasi URL (hapus path/query, tukar http/https, tambah www., trailing slash).
+4. Kandidat terpilih lalu dievaluasi **satu kali** pada set final.
+
+## 8. Metrik tambahan untuk aturan kesepakatan (T25b)
+
+- Recall-terjaring: phishing divonis `PHISHING` atau `SUSPICIOUS`.
+- Proporsi legitimate yang divonis `SUSPICIOUS`.
+- Specificity ketat: `SUSPICIOUS` dihitung salah.
+- Specificity longgar: `SUSPICIOUS` dihitung benar.
+- Rincian root vs berpath dan in vs not in allowlist untuk semua metrik.
