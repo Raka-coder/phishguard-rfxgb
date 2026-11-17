@@ -31,6 +31,7 @@ from src.config import (
     VERDICT_PHISHING,
     VERDICT_SUSPICIOUS,
 )
+from src.denylist import feed_status, is_denied
 from src.feature_utils import extract_features
 from src.features_host import to_host_frame
 from src.reputation import is_shortener, is_trusted
@@ -177,7 +178,7 @@ def predict_url(url: str) -> dict:
     """Prediksi satu URL. Raise ValueError bila URL tidak valid (API memetakannya ke 400).
 
     Alur vonis (berhenti di lapisan pertama yang memutuskan):
-      1. Denylist feed -> PHISHING (belum diimplementasikan, dilaporkan "dilewati").
+      1. Denylist feed -> PHISHING (cocok offline; feed hilang/basi -> dilewati).
       2. Allowlist domain tepercaya -> LEGITIMATE.
       3. Model B + Model C: keduanya tinggi -> SUSPICIOUS/tinggi; keduanya rendah ->
          LEGITIMATE/rendah; selain itu SUSPICIOUS/sedang.
@@ -191,13 +192,38 @@ def predict_url(url: str) -> dict:
 
     started = time.perf_counter()
     host = (urlsplit(url).hostname or "").lower()
-    trail = [
-        {
-            "layer": "denylist",
-            "result": "dilewati",
-            "detail": "Feed denylist belum tersedia (T19 belum dikerjakan).",
+
+    status, feed_path, status_detail = feed_status()
+    if status == "ok" and is_denied(url):
+        trail = [
+            {
+                "layer": "denylist",
+                "result": "cocok",
+                "detail": f"URL ada di snapshot feed phishing ({feed_path.name if feed_path else ''}).",
+            }
+        ]
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        return {
+            "url": url,
+            "label": LABEL_PHISH,
+            "label_name": VERDICT_PHISHING,
+            "verdict": VERDICT_PHISHING,
+            "risk_level": "tinggi",
+            "probability": None,
+            "inference_ms": round(elapsed_ms, 2),
+            "top_features": [],
+            "decision_source": "denylist",
+            "reason": "URL terdaftar di feed phishing lokal (denylist offline).",
+            "trail": trail,
         }
-    ]
+
+    if status == "missing":
+        denylist_entry = {"layer": "denylist", "result": "tidak tersedia", "detail": status_detail}
+    elif status == "stale":
+        denylist_entry = {"layer": "denylist", "result": "dilewati", "detail": status_detail}
+    else:
+        denylist_entry = {"layer": "denylist", "result": "tidak cocok", "detail": status_detail}
+    trail = [denylist_entry]
 
     if is_trusted(host):
         trail.append({"layer": "allowlist", "result": "cocok", "detail": f"Domain {host} ada di allowlist tepercaya."})

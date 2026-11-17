@@ -1,9 +1,12 @@
 """Kontrak inference Model B: arah label, validasi input, bentuk output, dan determinisme."""
 
+import os
+
 import pytest
 
 import src.predict as predict
 from src.config import LABEL_LEGIT, LABEL_PHISH, THRESHOLD, URL_FEATURES
+from src.denylist import reset_cache
 from src.feature_utils import extract_features, to_frame
 from src.reputation import is_trusted, is_user_content
 
@@ -178,6 +181,22 @@ def test_band_and_decide_rules():
     assert predict._decide(0.10, 0.20, True)[:3] == ("SUSPICIOUS", "sedang", "shortener")
     assert predict._decide(0.10, None, False)[:2] == ("LEGITIMATE", "rendah")
     assert predict._decide(0.90, None, False)[:2] == ("SUSPICIOUS", "tinggi")
+
+
+def test_denylist_layer_returns_phishing(tmp_path, monkeypatch):
+    d = tmp_path / "feeds"
+    d.mkdir()
+    (d / "openphish-1.txt").write_text("https://evil.example/phish\n", encoding="utf-8")
+    monkeypatch.setenv("PHISHGUARD_FEED_DIR", str(d))
+    monkeypatch.setenv("PHISHGUARD_FEED_MAX_AGE_HOURS", "24")
+    reset_cache()
+    result = predict.predict_url("https://evil.example/phish")
+    assert result["verdict"] == "PHISHING"
+    assert result["decision_source"] == "denylist"
+    assert result["risk_level"] == "tinggi"
+    assert result["probability"] is None
+    assert result["trail"][0]["layer"] == "denylist"
+    assert result["trail"][0]["result"] == "cocok"
 
 
 def test_top_features_contract():

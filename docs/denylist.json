@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-11-17T08:32:04.131094+00:00",
+  "snapshot_a": "openphish.txt",
+  "snapshot_b": "openphish-20261117-083111.txt",
+  "n_a": 300,
+  "n_b": 300,
+  "n_overlap_a_b": 1,
+  "n_new_in_b": 299,
+  "capture_on_new_in_b": {
+    "n": 0,
+    "total": 299,
+    "rate": 0.0,
+    "wilson_ci_95": [
+      0.0,
+      0.012684719046240528
+    ]
+  },
+  "capture_on_a_upper_bound": {
+    "n": 300,
+    "total": 300,
+    "rate": 1.0,
+    "label": "batas atas (trivial, tidak bermakna): denylist dievaluasi pada data yang membentuknya"
+  },
+  "false_positives": {
+    "legit_dev": {
+      "n_tested": 103,
+      "n_fp": 0
+    },
+    "legit_final": {
+      "n_tested": 34,
+      "n_fp": 0
+    }
+  }
+}

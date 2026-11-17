@@ -1,8 +1,11 @@
 """Kontrak API: POST /check, GET /health, error 400, dan CORS."""
 
+import os
+
 from fastapi.testclient import TestClient
 
 from api.main import app
+from src.denylist import reset_cache
 
 client = TestClient(app)
 
@@ -90,6 +93,22 @@ def test_trail_entries_shape():
 def test_model_never_returns_phishing():
     for url in (PHISHING_IP_URL, "https://bit.ly/abc123", "https://www.bbc.com"):
         assert client.post("/check", json={"url": url}).json()["verdict"] != "PHISHING"
+
+
+def test_denylist_returns_phishing(tmp_path, monkeypatch):
+    d = tmp_path / "feeds"
+    d.mkdir()
+    (d / "openphish-1.txt").write_text("https://evil.example/phish\n", encoding="utf-8")
+    monkeypatch.setenv("PHISHGUARD_FEED_DIR", str(d))
+    monkeypatch.setenv("PHISHGUARD_FEED_MAX_AGE_HOURS", "24")
+    reset_cache()
+    response = client.post("/check", json={"url": "https://evil.example/phish"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["verdict"] == "PHISHING"
+    assert body["decision_source"] == "denylist"
+    assert body["risk_level"] == "tinggi"
+    assert body["probability"] is None
 
 
 def test_check_top_features_shape():

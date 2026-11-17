@@ -1,5 +1,6 @@
 """Konstanta proyek: path data, seed, arah label, daftar kolom fitur, dan split bersama."""
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -53,6 +54,12 @@ MODEL_B_PATH = ROOT / "src" / "model.pkl"
 MODEL_A_PATH = ROOT / "src" / "model_full.pkl"
 TLD_PROBS_PATH = ROOT / "src" / "tld_probs.json"
 TRUSTED_DOMAINS_PATH = ROOT / "src" / "trusted_domains.json"
+
+# Feed denylist (T19): folder snapshot + batas umur (jam). Nilai default aman.
+FEED_DIR = Path(os.getenv("PHISHGUARD_FEED_DIR", str(ROOT / "data" / "feeds")))
+if not FEED_DIR.is_absolute():
+    FEED_DIR = ROOT / FEED_DIR
+FEED_MAX_AGE_HOURS = int(os.getenv("PHISHGUARD_FEED_MAX_AGE_HOURS", "24"))
 METRICS_PATH = DOCS_DIR / "metrics.json"
 STATS_PATH = DOCS_DIR / "stats.json"
 

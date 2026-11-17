@@ -3,8 +3,10 @@
 *.py[cod]
 .web
 assets/external/
-# data — JANGAN commit (ukuran + lisensi CC BY-NC-SA)
+# data - JANGAN commit (ukuran + lisensi CC BY-NC-SA)
 data/
+# snapshot feed denylist (lisensi OpenPhish - jangan distribusikan ulang)
+data/feeds/
 *.zip
 *.parquet
 *.duckdb
