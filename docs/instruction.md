@@ -1,62 +1,62 @@
-T14–T16: Lapisan Reputasi Offline + Uncertainty Band
-Konteks
-Model B (XGBoost, 19 fitur leksikal) false positive pada URL legitimate modern seperti github.com dan URL deploy Vercel, karena hanya membaca pola teks. Ini keterbatasan fundamental, bukan bug. Solusi tahap ini: lapisan reputasi offline (allowlist kurasi) + uncertainty band, TANPA network at inference. PhishTank, whois, DNS, dan threat intel ditunda — jangan implementasikan sekarang, hanya siapkan struktur agar mudah disambungkan nanti.
+Saya membuka CSV-nya dan menghitung komposisinya. Datanya cukup untuk dilanjutkan, tetapi ada tiga masalah yang harus dibereskan dulu, dan satu pekerjaan manual yang hanya bisa Anda lakukan.
 
-Keputusan desain yang sudah final (jangan diubah)
-Jangan tambah label 2. Semantik label proyek ini inverted (1 = legitimate, 0 = phishing, P(phishing) = proba[:,0]) dan semua test/metrics asumsi 0/1. Sebagai gantinya tambahkan field verdict terpisah: "PHISHING" | "LEGITIMATE" | "SUSPICIOUS".
-Threshold pada P(phishing): THRESHOLD_PHISHING = 0.65, THRESHOLD_SUSPICIOUS = 0.40. P ≥ 0.65 → PHISHING; 0.40 ≤ P < 0.65 → SUSPICIOUS; P < 0.40 → LEGITIMATE. config.THRESHOLD = 0.5 untuk keperluan model-only tetap tidak disentuh.
-Allowlist hanya exact match domain korporat (host == entri). Larangan keras: jangan pernah allowlist host di bawah public suffix (*.vercel.app, *.github.io, *.pages.dev, *.netlify.app, *.web.app, *.herokuapp.com, sites.google.com) dan jangan allowlist URL shortener (tinyurl.com, bit.ly, dst.). Host user-controlled harus jatuh ke model + uncertainty band, bukan auto-LEGITIMATE.
-Tanpa network sama sekali di semua kode baru. Tidak ada dependensi baru yang membutuhkan internet saat runtime.
-T14 — src/config.py, src/reputation.py, src/predict.py
-src/config.py:
+## 1. Temuan dari CSV
 
-Tambah konstanta: THRESHOLD_PHISHING = 0.65, THRESHOLD_SUSPICIOUS = 0.40, TRUSTED_DOMAINS_PATH = ROOT / "src" / "trusted_domains.json", VERDICT_PHISHING/LEGITIMATE/SUSPICIOUS sebagai konstanta string.
-src/trusted_domains.json (committed):
+| Hal | Hasil | Artinya |
+|---|---|---|
+| URL / host / **domain terdaftar** | 200 / 143 / **61** | Keragaman sebenarnya 61, bukan 143. `detik.com` saja 15 URL. |
+| Komposisi | 99 berakhiran `.id`, 21 `.org`, 74 `.com`; didominasi berita, kampus, pemerintah, dokumentasi | Mewakili "situs Indonesia yang lazim", bukan seluruh web. |
+| Panjang host | rata-rata 17 karakter, maksimum 32 | Pendek, padahal `DomainLength` adalah fitur yang paling mendorong FP dan membuat baseline sederhana terlihat bagus. Set ini bisa memuji model yang kebetulan membaca panjang host. |
+| Root / berpath | 45 / 155 | Bagus untuk menguji kelemahan model. |
+| Kolom `keep` | semua kosong | Belum ada satu pun label yang Anda setujui. |
 
-Kurasi manual ±60 domain korporat: google.com, youtube.com, github.com, vercel.com, netlify.com, wikipedia.org, python.org, kompas.com, detik.com, bri.co.id, bca.co.id, mandiri.co.id, kemdikbud.go.id, dsb. Format: {"updated": "2026-11-16", "domains": ["github.com", ...]}. Semua root domain korporat, TANPA wildcard, TANPA domain user-content, TANPA shortener.
-src/reputation.py (modul baru):
+## 2. Tiga masalah yang harus dibenahi
 
-load_trusted() -> set[str] — load JSON sekali (singleton), fallback set kosong jika file hilang (jangan crash).
-is_trusted(host: str) -> bool — exact match saja: host.lower() == domain (setelah strip www.? TIDAK — www.github.com dan github.com keduanya harus match; lakukan normalisasi: lowercase, buang trailing dot, dan perlakukan www. sebagai setara). Subdomain lain seperti gist.github.com TIDAK auto-match → biarkan jatuh ke model.
-Sertakan konstanta USER_CONTENT_HOSTS (suffix list di atas) dan fungsi is_user_content(host) -> bool — dipakai test dan nanti oleh lapisan online. Fungsi ini belum dipakai keputusan di T14, cukup teruji.
-Sertakan docstring yang menjelaskan: lapisan online (PhishTank denylist, whois domain-age) adalah future work dan akan ditambahkan sebagai lapisan sebelum allowlist; struktur decision_source sudah menyediakan nilai "denylist" dan "domain_age" untuk itu.
-src/predict.py — ubah predict_url():
+**a. Pembagian dev/final per host akan bocor.** `ui.ac.id`, `unp.ac.id`, dan yang lain punya banyak subdomain. Kalau dev dan final dibagi per host, domain yang sama bisa muncul di kedua sisi, dan hasil akhir jadi terlalu optimis. Kelompokkan per **domain terdaftar** (public suffix, mis. `ui.ac.id`) dan batasi maksimum 5 URL per domain terdaftar, bukan per host.
 
-Alur baru: validasi (tetap) → is_trusted(host) → jika ya: label=LABEL_LEGIT, label_name="LEGITIMATE", probability=None, verdict="LEGITIMATE", decision_source="allowlist", reason=f"Domain {host} berada dalam daftar domain tepercaya.", top_features=[], inference_ms tetap diukur. TIDAK memanggil model.
-Jika tidak trusted: jalankan model seperti sekarang → dari P(phishing): P ≥ 0.65 → verdict="PHISHING", decision_source="model"; 0.40 ≤ P < 0.65 → verdict="SUSPICIOUS", decision_source="uncertainty"; P < 0.40 → verdict="LEGITIMATE", decision_source="model".
-label (0/1) TETAP dari aturan lama P >= THRESHOLD(0.5) agar kompatibel dengan metrics dan test lama — verdict adalah keputusan user-facing, label adalah output model biner. Dokumentasikan bedanya di docstring.
-Field reason string Bahasa Indonesia untuk semua cabang, mis. "Skor phishing 0.72 ≥ 0.65 (ambang phishing)." / "Skor phishing 0.52 berada di zona tidak pasti (0.40–0.65); perlu verifikasi manual." / "Skor phishing 0.10 < 0.40."
-Backward-compat: pertahankan semua field lama (url, label, label_name, probability, inference_ms, top_features).
-T15 — api/main.py dan UI Reflex
-api/main.py:
+**b. Ada kategori yang hilang**, dan justru itu tempat model lemah: marketplace dan e-commerce, bank (halaman publik), layanan SaaS, domain panjang atau bersubdomain berlapis, dan situs yang jauh lebih "biasa" daripada media besar. Tambahkan ±40–60 URL dari kategori itu lewat bookmark Anda sendiri (jalur 1), karena URL dari tautan sebuah portal berita punya bias "dirujuk situs tepercaya".
 
-Response model: tambah verdict: str, decision_source: str, reason: str, dan probability: float | None. Update skema doc /docs dan contoh response.
-/health tetap; tidak ada perubahan CORS (localhost allowlist).
-app/app_state.py:
+**c. Provenans dan etika crawl.** `source_site` hanya mengulang host URL itu sendiri, dan agent mengakui `robots.txt` serta jeda 2 detik tidak diperiksa ketat. Tulis jujur di laporan: "dikumpulkan dengan crawl terbatas, tidak diverifikasi terhadap robots.txt". Jangan crawl lagi untuk tambahan; pakai bookmark.
 
-Base vars baru: verdict, decision_source, reason dengan default kosong.
-app/pages/index.py:
+## 3. Yang perlu Anda tandai `keep=0` (dari yang terlihat di file)
 
-Kartu hasil: warna merah (PHISHING), kuning (SUSPICIOUS), hijau (LEGITIMATE) + badge sumber keputusan (Allowlist / Model / Zona Tidak Pasti) + tampilkan reason. Untuk hasil allowlist yang probability=None, tampilkan "—" pada kolom probabilitas.
-Salinan user-facing dalam Bahasa Indonesia.
-app/pages/evaluasi.py:
+- **`maps.app.goo.gl/...`**: shortener. Sistem sengaja memvonis shortener sebagai SUSPICIOUS, jadi bukan contoh "legit biasa".
+- **5 URL `tiktok.com/@...`, 2 URL `bsky.app/profile/...`, dan `wa.me`**: profil dan konten buatan pengguna di platform besar. Ini tempat phisher suka bersembunyi, dan labelnya tidak bisa dijamin.
+- **`ir-bri.com/acgs.html`**: domainnya mirip merek BRI tetapi bukan `bri.co.id`. Saya tidak bisa memastikan sah atau tidaknya. Cek dari situs resmi BRI. Kalau tidak bisa memastikan, beri `0`. Sebagian domain ini juga berpotensi jadi contoh uji peniruan merek.
+- **`cnnchile.com` dan `cnnmexico.com` (http)**: kemungkinan sah, tapi pastikan dulu. Kalau ragu, `0`.
+- Satu URL `.pdf` boleh dipertahankan atau dibuang, tidak berpengaruh besar.
 
-Tambah catatan singkat: metrik halaman ini adalah metrik model-only pada test set PhiUSIIL; lapisan reputasi offline menurunkan FP dunia nyata tanpa mengubah test set.
-T16 — Docs, tests, verifikasi
-Docs:
+Untuk sisanya, aturannya sederhana: **kalau Anda yakin situs itu sah, tulis `1`; kalau ada keraguan sekecil apa pun, `0`.** Anda tidak perlu membuka URL. Cukup baca domainnya. Perkiraan waktu 20–30 menit, dan ini pekerjaan yang tidak boleh diserahkan ke agent karena menentukan "kebenaran" evaluasi.
 
-Update docs/phishguard-schema.md (field baru + alur keputusan) dan README (section "Keputusan berlapis" singkat: allowlist → model → uncertainty band; PhishTank/whois disebut sebagai future work).
-Amend AGENTS.md section etika dengan KETAT: tambah satu kalimat klarifikasi — "Lapisan reputasi saat ini murni offline (allowlist kurasi). Lapisan online future work (PhishTank/whois) tetap dilarang sampai di-amend eksplisit." Jangan hapus klausul "no network at inference".
-docs/hasil_evaluasi.md: tambah subsection "Analisis FP/FN dan mitigasi" — jelaskan bahwa 28 FP test set berskor 0.70–0.99 sehingga uncertainty band tidak menyelamatkannya; yang memperbaiki FP dunia nyata (github.com, URL deploy Vercel) adalah lapisan allowlist; keterbatasan leksikal (IsHTTPS dominan 0.749, FN phishing pendek-bersih) didokumentasikan apa adanya. Jangan ubah angka metrik apa pun, jangan sentuh docs/metrics.json/stats.json.
-Tests (pytest, uv run pytest -q harus hijau):
+## 4. Tempel ke agent (T24b)
+```
+Baca AGENTS.md, docs/PRD-v2.md, docs/TASKS.md. Kerjakan HANYA T24b.
+Ringkas rencana 5 baris dulu, tunggu konfirmasi. Tanpa jaringan.
+Boleh diubah/dibuat: scripts/prepare_legit_user.py, scripts/split_legit.py,
+tests/, docs/legit_user_README.md. Data tetap di data/realworld/ (gitignored).
+1. Tambahkan kolom reg_domain (domain terdaftar memakai public suffix list,
+   mis. tldextract tanpa jaringan/offline snapshot; jika dependensi baru
+   dibutuhkan, tanyakan dulu).
+2. Terapkan batas maksimum 5 URL per reg_domain pada legit_review.csv
+   (jangan menghapus baris yang sudah saya beri keep=1; laporkan baris yang
+   dibuang dan alasannya secara agregat).
+3. Ubah split_legit.py: bagi baris keep=1 menjadi dev 70% / final 30%
+   dikelompokkan per reg_domain (seed 42), bukan per host. Laporkan bahwa
+   tidak ada reg_domain yang muncul di kedua file.
+4. Cetak hanya agregat: jumlah URL dan reg_domain per file, rasio root vs
+   berpath, jumlah di luar allowlist, rata-rata dan median panjang host
+   per file. Jangan mencetak URL.
+5. Tambahkan di docs/legit_user_README.md bagian "Keterbatasan": komposisi
+   (berita/kampus/pemerintah/dokumentasi), crawl terbatas, robots.txt tidak
+   diperiksa, host pendek.
+Laporkan yang dijalankan dan yang tidak diverifikasi.
+```
 
-test_reputation.py baru: exact match github.com dan www.github.com → trusted; gist.github.com, evil-github.com, github.com.evil.io → NOT trusted; foo.vercel.app → is_user_content True dan NOT trusted; shortener tidak ada di allowlist; file JSON hilang → fallback kosong tanpa exception.
-test_predict.py: kasus allowlist (https://github.com/... → verdict LEGITIMATE, source allowlist, probability None); kasus band (mock/synthesize P dalam 0.40–0.65 → SUSPICIOUS, source uncertainty); label 0/1 tetap mengikuti threshold 0.5.
-Update test API untuk field baru.
-Test kontrak penting (wajib ada): https://phishing-test.vercel.app/login TIDAK BOLEH menghasilkan decision_source == "allowlist" — kalau model lama menandainya PHISHING, verdict tidak boleh LEGITIMATE karena allowlist.
-Verifikasi akhir: uv run pytest -q, reflex compile/run headless jika UI berubah, dan uji manual scripts/test_live_urls.py dengan tests/fixtures/urls.txt (tambahkan https://github.com/Raka-coder/phishguard-rfxgb, https://vercel.com, https://my-project.vercel.app sebagai fixture) — laporkan output sebelum/sebelum/sesudah perubahan.
+## 5. Urutan kerja Anda sekarang
+1. Isi kolom `keep` di `legit_review.csv` (aturan di atas), ±30 menit.
+2. Ekspor bookmark Chrome ke `data/realworld/raw/` dan jalankan `prepare_legit_user.py` untuk kategori yang hilang (marketplace, bank, SaaS, subdomain). Gabungkan hasilnya ke `legit_review.csv`, lalu beri `keep`.
+3. Jalankan T24b di atas.
+4. Jalankan T25c (perbaikan syarat lantai recall-terjaring), lalu jalankan ulang T25b.
+5. Kirim ke saya **agregat saja** dari T24b: jumlah URL dan domain terdaftar per file (dev/final), rasio root vs berpath, jumlah di luar allowlist, dan rata-rata panjang host per file.
 
-Yang sengaja TIDAK dilakukan
-Tidak ada PhishTank, whois, DNS, atau API eksternal apa pun (ditunda, akan jadi T17).
-Tidak melatih ulang model, tidak mengubah threshold 0.5 untuk label, tidak mengubah metrics.json/hasil evaluasi test set.
-Tidak menambah dependensi baru.
+Kalau setelah dibersihkan jumlahnya tinggal sekitar 100–150 URL dari ±40–50 domain terdaftar, itu masih bisa dipakai. Laporkan angka sebenarnya dan interval kepercayaan yang lebar, dan jangan memaksakan ke 200. Yang tidak boleh adalah menyatakan hasil lebih pasti daripada yang didukung data.

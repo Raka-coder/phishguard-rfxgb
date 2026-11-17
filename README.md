@@ -1,105 +1,115 @@
 # PhishGuard — Deteksi Phishing Berlapis dari URL
 
-[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.163-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Reflex](https://img.shields.io/badge/Reflex-0.11-6C5CE7?style=flat-square)](https://reflex.dev)
-[![Tests](https://img.shields.io/badge/tests-145%20passed-brightgreen?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-145%20passed-brightgreen?style=flat-square)](#pengujian)
 [![Dataset](https://img.shields.io/badge/Dataset-CC%20BY--NC--SA%204.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
-PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI**
-(di API: `SUSPICIOUS`) dengan model yang dilatih dari dataset
-[PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset),
-lalu menjelaskan setiap vonis lewat `trail` (lapisan mana yang memutuskan dan kenapa). Antarmuka memakai
-**Reflex** (100% Python) dan inference dilayani **FastAPI**. Proyek mata kuliah Keamanan Informasi —
-KP70065004, Informatika, Universitas Siliwangi.
+PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI** (pada API: `SUSPICIOUS`) menggunakan model machine learning berbasis dataset [PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset). Setiap keputusan dijelaskan secara transparan melalui jejak evaluasi (`trail`) yang merinci lapisan mana yang memicu vonis dan alasan logisnya. Antarmuka aplikasi dibangun dengan **Reflex** (100% Python) dan inferensi berkecepatan tinggi dilayani oleh **FastAPI**.
 
-> Tujuan utamanya bukan sekadar angka tinggi di test set, melainkan deteksi yang jujur: menampilkan
-> kelemahan, memisahkan hasil test set dari uji dunia nyata, dan menjelaskan batas tiap lapisan.
+Proyek ini dikembangkan dalam lingkup mata kuliah **Keamanan Informasi** (KP70065004), Program Studi Informatika, Universitas Siliwangi.
 
-## Arsitektur berlapis
+> [!NOTE]
+> **Prinsip Kejujuran Deteksi:** Fokus utama proyek bukan sekadar mengejar skor tinggi pada test set sintetik/akademik, melainkan menghadirkan deteksi yang jujur: menampilkan limitasi, memisahkan metrik test set dari uji dunia nyata, dan menguraikan batasan teknis di setiap lapisan pertahanan.
 
-Setiap permintaan berhenti di lapisan pertama yang memutuskan. Urutannya:
+---
 
+## Arsitektur Deteksi Berlapis
+
+Setiap permintaan inferensi URL dievaluasi secara bertahap dan berhenti seketika di lapisan pertama yang mencapai vonis pasti:
+
+```mermaid
+flowchart TD
+    Start([Input URL]) --> L1{1. Denylist Feed Offline}
+    L1 -- Cocok --> Phishing([PHISHING])
+    L1 -- "Lewat (Kosong / Basi)" --> L2{2. Allowlist Tepercaya}
+    L2 -- "Cocok (~60 domain)" --> Legitimate([LEGITIMATE])
+    L2 -- Tidak Cocok --> L3{3. Model ML: Model B + Model C}
+    L3 -- "Keduanya Rendah (<0.40)" --> L4{4. Cek URL Shortener}
+    L3 -- "Keduanya Tinggi (>=0.65)" --> Suspicious([TIDAK TERVERIFIKASI / SUSPICIOUS])
+    L3 -- "Konflik / Zona Ragu (0.40-0.65)" --> Suspicious
+    L4 -- "Bukan Shortener" --> Legitimate
+    L4 -- "Penyedia Shortener (bit.ly, t.co)" --> Suspicious
 ```
-URL
- │
- ├─1─ denylist feed OpenPhish (snapshot lokal, offline) ── cocok ──> PHISHING
- │        feed hilang/basi -> dilewati, tercatat di trail
- ├─2─ allowlist domain tepercaya (offline, ~60 domain) ── cocok ──> LEGITIMATE
- ├─3─ Model C (host, 10 fitur) + Model B (URL, 19 fitur)
- │        dua skor dipetakan ke zona rendah (<0,40) / sedang (0,40–0,65) / tinggi (>=0,65):
- │        sama-sama rendah -> LEGITIMATE, sama-sama tinggi -> TIDAK TERVERIFIKASI,
- │        berbeda -> TIDAK TERVERIFIKASI (tanpa Model C: band Model B saja)
- └─4─ shortener (bit.ly, t.co, dll.) ──> TIDAK TERVERIFIKASI bila masih LEGITIMATE
-```
 
-- **Model A** (50 fitur, termasuk konten halaman) hanya untuk laporan; fitur kontennya tidak tersedia
-  saat inference live, jadi angkanya jangan dibandingkan langsung dengan Model B.
-- **Model B** (`src/model.pkl`, XGBoost, 19 fitur leksikal) dan **Model C**
-  (`models/experimental/C_host.pkl`, 10 fitur host) dipakai API/UI. Model C bersifat opsional: tanpa
-  artefaknya, vonis memakai Model B saja.
-- Arah label dataset terbalik: `1 = legitimate`, `0 = phishing`, sehingga
-  `P(phishing) = predict_proba[:, 0]`. Skor phishing-as-positive dipakai di semua metrik.
-- **Tanpa jaringan saat inference.** Ekstraksi fitur murni string → dict; tidak ada fetch, resolve,
-  atau probe ke URL yang dianalisis. Lihat [Etika](#etika).
+### Rincian Peran Lapisan & Model
+1. **Lapisan 1 — Denylist Feed Lokal (Offline):** Pencocokan cepat dengan snapshot feed phishing publik (OpenPhish). Jika file snapshot tidak ada atau telah berusia lebih dari 24 jam (`PHISHGUARD_FEED_MAX_AGE_HOURS`), lapisan dilewati dengan aman dan dicatat di `trail`.
+2. **Lapisan 2 — Allowlist Domain Tepercaya (Offline):** Pencocokan string domain terhadap ~60 domain korporat/populer (`src/trusted_domains.json`) untuk mencegah false positive pada layanan esensial.
+3. **Lapisan 3 — Ensemble Model ML:**
+   - **Model B** (`src/model.pkl`): XGBoost dengan 19 fitur leksikal URL murni (dihitung langsung dari string URL via `extract_features()`).
+   - **Model C** (`models/experimental/C_host.pkl`): 10 fitur host/domain. Model C bersifat modular; jika file model tidak ada, sistem otomatis beralih menggunakan zona probabilitas Model B saja.
+   - **Model A** (`src/model_full.pkl`, Random Forest 50 fitur termasuk konten halaman HTML/DOM): Hanya digunakan sebagai baseline laporan holdout dataset dan **tidak dijalankan** pada inferensi langsung guna menghindari train/serve skew dan latensi jaringan.
+4. **Lapisan 4 — Deteksi Pemendek Tautan (Shortener):** URL yang lolos sebagai legitimate tetapi menggunakan domain pemendek URL (seperti `bit.ly`, `t.co`) dialihkan statusnya menjadi `TIDAK TERVERIFIKASI` karena tujuan akhir tautan disembunyikan.
 
-Respons API memuat `verdict`, `risk_level`, `decision_source`, `reason`, dan `trail`. Field lama
-`label` (0/1) tetap ada untuk kompatibilitas. Detail kontrak ada di `docs/phishguard-schema.md`.
+> [!IMPORTANT]
+> **Klausul Inferensi Offline & Etika:** Proses ekstraksi fitur dan penentuan vonis murni manipulasi string. Sistem tidak pernah membuka soket, melakukan resolusi DNS, HTTP fetch, atau probing aktif ke URL target.
 
-## Hasil
+---
 
-Metrik test set (47.159 baris, tidak pernah dilatih) — angka dari `docs/hasil_evaluasi.md`:
+## Hasil Evaluasi & Benchmark
 
-| Model | Fitur | Accuracy | Precision (phishing) | Recall (phishing) | F1 (phishing) | FP | FN |
+### 1. Metrik Holdout Test Set (Dataset PhiUSIIL)
+Diuji pada 47.159 baris data holdout independen yang tidak pernah dilihat selama pelatihan (sumber: `docs/hasil_evaluasi.md`):
+
+| Model | Fitur | Accuracy | Precision (Phishing) | Recall (Phishing) | F1-Score (Phishing) | False Positive (FP) | False Negative (FN) |
 |---|---|---|---|---|---|---|---|
-| B — URL-only (xgb) | 19 | 0.9968 | 0.9986 | 0.9940 | 0.9963 | 28 | 122 |
-| A — full (rf, laporan) | 50 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 0 | 0 |
+| **Model B — URL Leksikal (XGBoost)** | 19 | **0.9968** | **0.9986** | **0.9940** | **0.9963** | 28 | 122 |
+| **Model A — Full HTML/DOM (Random Forest)** | 50 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 0 | 0 |
 
-Angka dunia nyata jauh lebih rendah dan sengaja ditampilkan apa adanya di halaman **Evaluasi**:
-`docs/realworld.json`, `docs/t25.json`, dan `docs/denylist.json`. Semua angka dibaca dari JSON yang
-dihasilkan skrip — tidak ditulis manual di UI. Bacaan singkat: `docs/realworld_README.md`,
-`docs/model_c.md`, `docs/denylist_README.md`.
+### 2. Realita Evaluasi Dunia Nyata
+Hasil uji pada feed phishing dunia nyata dan URL modern jauh lebih menantang dibandingkan dataset akademik tertutup. Semua metrik empiris dibaca secara transparan dari file JSON hasil eksperimen:
+- `docs/realworld.json` — Evaluasi terhadap URL live non-PhiUSIIL (lihat [Panduan Real-world](docs/realworld_README.md)).
+- `docs/t25.json` — Eksperimen model C berbasis host (lihat [Analisis Model C](docs/model_c.md)).
+- `docs/denylist.json` — Evaluasi cakupan snapshot denylist OpenPhish (lihat [Panduan Denylist](docs/denylist_README.md)).
 
-> Label contoh FP/FN di `docs/hasil_evaluasi.md` berasal dari dataset PhiUSIIL dan **belum diverifikasi
-> independen**; jangan menyebut domain nyata sebagai phishing tanpa catatan itu.
+> [!WARNING]
+> Contoh domain FP/FN di `docs/hasil_evaluasi.md` merupakan label mentah dataset PhiUSIIL dan belum diverifikasi secara independen; jangan menyebut domain publik sebagai phishing tanpa menyertakan konteks keterbatasan dataset.
 
-## Clone bersih — Windows
+---
+
+## Panduan Instalasi & Menjalankan
+
+### Prasyarat
+- **Python 3.11**
+- Paket manager **[`uv`](https://docs.astral.sh/uv/)**
+
+### 1. Lingkungan Windows (PowerShell)
 
 ```powershell
+# Clone repositori
 git clone https://github.com/Raka-coder/phishguard-rfxgb.git
 cd phishguard-rfxgb
 
-# uv mengunduh Python 3.11 bila belum ada
+# Pasang uv (jika belum terpasang) dan sinkronisasi virtual environment
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 uv sync
 
-# Dataset (butuh internet; idempotent). Fallback: lihat "Dataset" di bawah.
+# Unduh dan siapkan dataset (idempotent, opsional jika hanya menjalankan aplikasi)
 uv run python scripts/download_data.py
 uv run python scripts/convert_parquet.py
-uv run python scripts/inspect_data.py   # wajib: 235795 baris; label 1:134850, 0:100945
+uv run python scripts/inspect_data.py   # Wajib memverifikasi: 235795 baris; label 1: 134850, 0: 100945
 
-# Artefak sudah di-commit: src/model.pkl, models/experimental/C_host.pkl,
-# models/experimental/tld_probs_host.json, src/tld_probs.json -> tidak perlu training ulang.
-# Bila ingin melatih ulang dari awal:
-uv run python src/train.py              # menimpa metrics.json/stats.json — simpan dulu jika perlu
-uv run python scripts/train_t25.py      # menghasilkan ulang C_host.pkl + tld_probs_host.json
-
-# Opsional: snapshot feed untuk lapisan denylist (satu-satunya skrip yang memakai jaringan)
+# Opsional: Unduh snapshot feed phishing untuk lapisan denylist
 uv run python scripts/sync_feeds.py
 
+# Verifikasi test suite dan kompilasi antarmuka
 uv run pytest -q                        # 145 tests
-uv run reflex compile                  # cek UI tanpa server
+uv run reflex compile
 
-# Terminal 1 — API
+# Terminal 1 — Jalankan FastAPI Service
 uv run uvicorn api.main:app --port 8001
-# Terminal 2 — UI (headless/CI)
-$env:CI=1; uv run reflex run            # frontend :3000, backend :8000
+
+# Terminal 2 — Jalankan Antarmuka Reflex (Frontend :3000, Backend :8000)
+$env:CI=1; uv run reflex run
 ```
 
-Bila frontend Reflex gagal start di Windows dengan error DLL/bun, pasang Microsoft Visual C++
-2015 Redistributable x64.
+> [!TIP]
+> Jika frontend Reflex di Windows gagal dijalankan karena dependensi DLL Bun/Node, pasang **Microsoft Visual C++ 2015-2022 Redistributable (x64)**.
 
-## Clone bersih — Linux / macOS
+---
+
+### 2. Lingkungan Linux / macOS
 
 ```bash
 git clone https://github.com/Raka-coder/phishguard-rfxgb.git
@@ -112,131 +122,169 @@ uv run python scripts/download_data.py
 uv run python scripts/convert_parquet.py
 uv run python scripts/inspect_data.py
 
-# Opsional: snapshot feed denylist
 uv run python scripts/sync_feeds.py
-
 uv run pytest -q
 uv run reflex compile
 
-# Terminal 1 — API
+# Terminal 1: API
 uv run uvicorn api.main:app --port 8001
-# Terminal 2 — UI (headless/CI)
+
+# Terminal 2: UI Reflex
 CI=1 uv run reflex run
 ```
 
-Semua perintah Python **wajib** lewat `uv run`; jangan pakai `python`/`pip` global. Jalankan dari root repo.
+---
 
-> **Verifikasi wajib:** `inspect_data.py` harus mencetak persis `235795 baris; label 1: 134850, 0: 100945`.
-> Kalau berbeda, STOP dan laporkan.
+## Artefak & Integritas Model
 
-## Artefak yang dibutuhkan aplikasi
+Artefak model operasional berikut telah disertakan langsung di repositori sehingga tidak mewajibkan pelatihan ulang:
 
-Artefak berikut **ada di repo** dan langsung dipakai saat inference:
-
-| File | Ukuran | Kegunaan |
+| File | Ukuran | Deskripsi & Peran |
 |---|---|---|
-| `src/model.pkl` | 880.792 byte | Model B (XGBoost, 19 fitur) |
-| `src/tld_probs.json` | kecil | probabilitas TLD untuk Model B |
-| `models/experimental/C_host.pkl` | 1.210.954 byte | Model C (host, 10 fitur) |
-| `models/experimental/tld_probs_host.json` | tabel TLD host |  |
+| `src/model.pkl` | ~880 KB | Model B utama (XGBoost 19 fitur leksikal) |
+| `src/tld_probs.json` | ~4 KB | Tabel probabilitas legitimate per TLD untuk Model B |
+| `models/experimental/C_host.pkl` | ~1.2 MB | Model C eksperimental (10 fitur berbasis host) |
+| `models/experimental/tld_probs_host.json` | ~4 KB | Tabel probabilitas TLD khusus Model C |
 
-Hash SHA256 artefak model (dari commit ini):
-
-```
+### Verifikasi Checksum SHA256
+```text
 9e7293bddfc3cb79a4fde0c7aa445aa759e2ab8556c61902231051c3dc0e280b  src/model.pkl
 60faa4123b57a44aaacf20b3eeb21bf2159cdc81afc2c4653e1f9ac830e8a231  models/experimental/C_host.pkl
 00a6de620719b2dc0833f3acff39a88f8effa3da5856da233b5bc88cb526bd39  models/experimental/tld_probs_host.json
 5087b2324f6a4cc4e082c33987b0558efbf00506c9b554557b759ddfe2f521ee  src/tld_probs.json
 ```
 
-> **Keamanan:** `joblib`/pickle dapat menjalankan kode saat dimuat. Muat hanya artefak dari repo ini.
-> Setelah training ulang, hash berubah — perbarui daftar di atas bila artefak di-commit ulang.
+> [!CAUTION]
+> Serialisasi Pickle/Joblib dapat mengeksekusi kode sembarang saat dimuat. Muat hanya artefak yang terverifikasi dari repositori terpercaya.
 
-Yang **tidak** ada di repo dan harus dibuat/diunduh lokal:
+Artefak yang sengaja diabaikan dari git (`.gitignore`):
+- `data/PhiUSIIL.csv` & `data/PhiUSIIL.parquet` (lisensi dataset CC BY-NC-SA 4.0).
+- `src/model_full.pkl` (Model A evaluasi; dibuat dengan `uv run python src/train.py`).
+- `data/feeds/*.txt` (snapshot unduhan OpenPhish).
 
-- `data/PhiUSIIL.csv` dan `data/PhiUSIIL.parquet` — dataset berlisensi (lihat bawah).
-- `src/model_full.pkl` — Model A, hanya dipakai `src/evaluate.py`; buat dengan `uv run python src/train.py`.
-- `data/feeds/` — snapshot OpenPhish, harus diunduh sendiri lewat `scripts/sync_feeds.py` dan tidak
-  boleh didistribusikan ulang. Tanpa snapshot ini, lapisan denylist dilewati dengan aman.
+---
 
-## Dataset
+## Konfigurasi Lingkungan (`.env`)
 
-- `uv run python scripts/download_data.py` mengunduh dari Kaggle
-  ([ndarvind/phiusiil-phishing-url-dataset](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset))
-  dan menyalinnya ke `data/PhiUSIIL.csv` (idempotent). `convert_parquet.py` membuat parquet sekali per mesin.
-- **Fallback manual:** unduh ZIP dari halaman Kaggle, ekstrak, rename menjadi `data/PhiUSIIL.csv`, lalu
-  jalankan ulang `scripts/download_data.py` (akan terdeteksi "sudah ada" dan skip).
-- Sumber: Prasad & Chandra (2023), *PhiUSIIL: A diverse security profile empowered phishing URL detection
-  framework*, Computers & Security, doi:[10.1016/j.cose.2023.103545](https://doi.org/10.1016/j.cose.2023.103545).
-- Lisensi **CC BY-NC-SA 4.0** — non-komersial, dengan atribusi, turunan dibagikan dengan lisensi sama.
-  Dataset tidak di-commit.
+Konfigurasi aplikasi dapat disesuaikan melalui file `.env` (dapat disalin dari `.env.example`):
 
-## sinkronisasi feed
+```bash
+# Windows
+copy .env.example .env
+# Linux / macOS
+cp .env.example .env
+```
 
-Satu-satunya skrip yang boleh mengakses jaringan adalah `uv run python scripts/sync_feeds.py`. Ia
-menyimpan snapshot bertanggal di `data/feeds/openphish-YYYYMMDD-HHMMSS.txt` tanpa menimpa snapshot lama.
-`src/denylist.py` mencocokkan URL secara offline terhadap snapshot terbaru; snapshot basi
-(default 24 jam, `PHISHGUARD_FEED_MAX_AGE_HOURS`) dilewati. Aturan evaluasi dan lisensi ada di
-`docs/denylist_README.md`.
+| Variabel | Nilai Default | Keterangan |
+|---|---|---|
+| `PHISHGUARD_API_URL` | `http://localhost:8001/check` | Endpoint API yang dipanggil oleh antarmuka Reflex |
+| `PHISHGUARD_FEED_DIR` | `data/feeds` | Direktori penyimpanan snapshot feed OpenPhish |
+| `PHISHGUARD_FEED_MAX_AGE_HOURS` | `24` | Batas kedaluwarsa feed denylist sebelum dilewati |
 
-## Testing
+---
+
+## Penggunaan API
+
+### `POST /check`
+Menganalisis URL dan mengembalikan vonis klasifikasi, probabilitas, jejak keputusan per lapisan, serta fitur yang paling berpengaruh.
+
+**Permintaan (cURL):**
+```bash
+curl -X POST http://localhost:8001/check \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://secure-login.bank-verify.fake-domain.xyz/auth"}'
+```
+
+**Respons (JSON):**
+```json
+{
+  "url": "https://secure-login.bank-verify.fake-domain.xyz/auth",
+  "verdict": "PHISHING",
+  "risk_level": "TINGGI",
+  "probability": 0.9842,
+  "label": 0,
+  "decision_source": "model",
+  "reason": "Probabilitas phishing dari fitur URL tinggi (0.9842)",
+  "trail": [
+    {"layer": "denylist", "result": "PASS", "detail": "Tidak cocok dengan denylist lokal"},
+    {"layer": "allowlist", "result": "PASS", "detail": "Bukan domain terdaftar allowlist"},
+    {"layer": "model", "result": "HIT", "detail": "Model XGBoost mendeteksi pola leksikal mencurigakan"}
+  ],
+  "top_features": [
+    {"feature": "SpacialCharRatioInURL", "value": 0.12, "impact": "phishing"},
+    {"feature": "TLDLegitimateProb", "value": 0.04, "impact": "phishing"}
+  ],
+  "inference_ms": 1.25
+}
+```
+
+### `GET /health`
+Mengecek status kesiapan service dan ketersediaan artefak model di memori.
+
+---
+
+## Pengujian & Verifikasi
+
+Semua perintah pengujian dijalankan dari root repositori menggunakan environment `uv`:
 
 ```powershell
-uv run pytest -q                                  # 145 tests
-uv run pytest -q tests/test_predict.py::test_nama
-uv run reflex compile                             # build UI tanpa server
-uv run python scripts/test_live_urls.py           # uji corpus contoh sintetis
+# Menjalankan seluruh test suite otomatis (145 tests)
+uv run pytest -q
+
+# Menjalankan satu test spesifik
+uv run pytest -q tests/test_predict.py::test_predict_url_allowlist
+
+# Menguji kompilasi antarmuka Reflex
+uv run reflex compile
+
+# Uji korpus contoh URL sintetis
+uv run python scripts/test_live_urls.py
 uv run python scripts/test_live_urls.py --markdown
 ```
 
-`tests/fixtures/urls.txt` berisi **contoh sintetis** berlabel (bukan URL phishing nyata dari feed) plus
-URL legitimate modern. Untuk uji dunia nyata, ikuti `docs/realworld_README.md` dan unduh feed sendiri.
+---
 
-## Konfigurasi lingkungan (.env)
+## Struktur Direktori
 
-Salin template bila perlu: `copy .env.example .env` (Windows) atau `cp .env.example .env` (Linux/macOS).
-`.env` di-gitignore; variabel shell (`$env:...` / `export ...`) lebih prioritas.
-
-```env
-PHISHGUARD_API_URL=http://localhost:8001/check
-PHISHGUARD_FEED_DIR=data/feeds
-PHISHGUARD_FEED_MAX_AGE_HOURS=24
+```text
+phishguard-rfxgb/
+├── api/                    # Layanan FastAPI :8001 (/check, /health)
+├── app/                    # Web UI Reflex :3000 & State management
+│   ├── pages/              # Halaman antarmuka (index, evaluasi)
+│   ├── app_state.py        # Pengelola state reaktif Reflex
+│   └── style.py            # Desain tema, warna, dan komponen visual
+├── assets/                 # Aset grafis statis dan styling
+├── data/                   # Dataset PhiUSIIL & snapshot feed (gitignored)
+├── docs/                   # Spesifikasi teknis, PRD v1/v2, skema, dan catatan analisis
+├── models/experimental/    # Model eksperimental C_host.pkl & tld_probs_host.json
+├── scripts/                # Script otomasi data, evaluasi, training, dan feed sync
+├── src/                    # Modul inti deteksi (predict, config, feature_utils, denylist, reputation)
+└── tests/                  # Unit tests & integrasi (145 tests) + fixtures sintetis
 ```
 
-## Struktur proyek
+---
 
-```
-src/           config.py, feature_utils.py, features_host.py, reputation.py, denylist.py,
-               predict.py, train.py, evaluate.py, model.pkl, tld_probs.json
-models/experimental/  C_host.pkl, tld_probs_host.json (Model C; varian riset lainnya di-gitignore)
-api/           main.py — FastAPI :8001 (/check, /health)
-app/           app.py, app_state.py, pages/ (index, evaluasi), style.py, limitations.json
-scripts/       download_data.py, convert_parquet.py, sync_feeds.py, train_t25.py,
-               eval_t25.py, eval_denylist.py, test_live_urls.py, …
-tests/         test_*.py + fixtures/urls.txt
-data/          dataset & snapshot feed — gitignored
-docs/          spesifikasi, hasil evaluasi, dan JSON agregat (tanpa URL feed)
-assets/        ikon/font UI (perhatikan lisensi aset pihak ketiga sebelum publikasi)
-```
+## Konvensi Arsitektur & Rekayasa
 
-## Konvensi penting
+- **Inversi Label Dataset:** `1 = legitimate`, `0 = phishing`. Di seluruh metrik dan kode, $P(\text{phishing}) = \text{predict\_proba}[:, 0]$ dengan `pos_label=0`.
+- **Reproducibility Split:** Pembagian data wajib menggunakan fungsi `src/config.py:make_split(df)` (Stratified, seed 42) untuk memastikan holdout test set (47.159 baris) steril dari data latih.
+- **Pencegahan Kebocoran (Data Leakage):** Fitur konten HTML/DOM (`LineOfCode`, `Bank`, `HasTitle`, dll.) hanya diizinkan untuk Model A. Model B dilatih secara murni dari hasil recomputasi leksikal URL `feature_utils.to_frame()`.
+- **Zero Network on Prediction:** Fungsi `predict_url()` dilarang melakukan request jaringan atau resolusi DNS eksternal saat inferensi.
+- **Port Layanan:** FastAPI di port `:8001`, Reflex backend di `:8000`, Reflex frontend di `:3000`.
 
-- Label dataset: `1 = legitimate`, `0 = phishing`. `P(phishing) = predict_proba[:, 0]`.
-- Split hanya dari `src/config.py: make_split(df)` (stratified, seed 42); test set tidak dilatih.
-- Model A hanya laporan; Model B/C yang dipakai API/UI. Fitur konten di Model B = kebocoran data.
-- Model B dihitung ulang dari string URL via `extract_features()`, bukan disalin dari kolom dataset.
-- Port: API `:8001`, backend Reflex `:8000`, frontend `:3000`.
-- **Tanpa akses jaringan saat inference.**
-- Reflex 0.11: halaman didaftarkan eksplisit dengan `app.add_page(...)`; alur memakai `rx.cond`/`rx.foreach`.
+---
 
-## Etika
+## Referensi & Bacaan Lanjutan
 
-Inference **tidak mengakses jaringan** dan tidak pernah membuka, me-resolve, atau memprobe URL yang
-dianalisis. Hanya `scripts/sync_feeds.py` yang boleh mengunduh daftar feed publik secara berkala, dan
-data feed **tidak didistribusikan ulang** (simpan lokal di `data/feeds/`). Dataset PhiUSIIL dipakai
-untuk keperluan akademik non-komersial dengan atribusi (CC BY-NC-SA 4.0).
-
-## Referensi
-
-- Prasad & Chandra (2023), *PhiUSIIL: A diverse security profile empowered phishing URL detection framework*, Computers & Security, doi:[10.1016/j.cose.2023.103545](https://doi.org/10.1016/j.cose.2023.103545).
-- Spesifikasi: [PRD](docs/phishguard-prd.md) · [arsitektur](docs/phishguard-architecture.md) · [skema](docs/phishguard-schema.md) · [PRD v2](docs/PRD-v2.md) · [denylist](docs/denylist_README.md).
+1. **Prasad, A., & Chandra, S. (2023).** *PhiUSIIL: A diverse security profile empowered phishing URL detection framework.* Computers & Security, 131, 103545. [https://doi.org/10.1016/j.cose.2023.103545](https://doi.org/10.1016/j.cose.2023.103545).
+2. **Kaggle Dataset:** [ndarvind/phiusiil-phishing-url-dataset](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset) (Lisensi: CC BY-NC-SA 4.0).
+3. **OpenPhish:** Public Feed Data Phishing [https://openphish.com](https://openphish.com).
+4. **Dokumentasi Internal Proyek:**
+   - [Product Requirement Document (PRD v1)](docs/phishguard-prd.md)
+   - [Product Requirement Document v2 (PRD v2)](docs/PRD-v2.md)
+   - [Arsitektur Sistem Berlapis](docs/phishguard-architecture.md)
+   - [Spesifikasi Kontrak & Skema Data](docs/phishguard-schema.md)
+   - [Laporan Evaluasi & Batasan Model](docs/hasil_evaluasi.md)
+   - [Dokumentasi Model C Host](docs/model_c.md)
+   - [Dokumentasi Evaluasi Denylist Offline](docs/denylist_README.md)
+   - [Dokumentasi Set Uji Dunia Nyata](docs/realworld_README.md)
