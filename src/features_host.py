@@ -20,13 +20,16 @@ HOST_FEATURES = [
 DEFAULT_TLD_PROB = 0.5
 
 
-def host_of(url: str) -> str:
-    """Host lowercase tanpa port; string rusak menghasilkan ""."""
+def host_of(url: str, strip_www: bool = False) -> str:
+    """Host lowercase tanpa port; bila strip_www, awalan www. dibuang."""
     url = (url or "").strip()
     try:
-        return (urlsplit(url if "://" in url else f"http://{url}").hostname or "").lower()
+        host = (urlsplit(url if "://" in url else f"http://{url}").hostname or "").lower()
     except ValueError:
         return ""
+    if strip_www and host.startswith("www."):
+        host = host[4:]
+    return host
 
 
 def tld_of_host(host: str) -> str:
@@ -46,9 +49,10 @@ def extract_host_features(
     url: str,
     tld_probs: dict[str, float] | None = None,
     default_tld_prob: float = DEFAULT_TLD_PROB,
+    strip_www: bool = False,
 ) -> dict[str, float]:
     """10 fitur yang hanya bergantung pada host; skema/path/query tidak berpengaruh."""
-    host = host_of(url)
+    host = host_of(url, strip_www=strip_www)
     labels = host.split(".") if host else []
     n = len(host)
     denom = n or 1
@@ -75,9 +79,10 @@ def to_host_frame(
     urls: str | list[str],
     tld_probs: dict[str, float] | None = None,
     default_tld_prob: float = DEFAULT_TLD_PROB,
+    strip_www: bool = False,
 ) -> pd.DataFrame:
     """DataFrame satu baris per URL, kolom urut sesuai HOST_FEATURES."""
     if isinstance(urls, str):
         urls = [urls]
-    rows = [extract_host_features(u, tld_probs, default_tld_prob) for u in urls]
+    rows = [extract_host_features(u, tld_probs, default_tld_prob, strip_www=strip_www) for u in urls]
     return pd.DataFrame(rows, columns=HOST_FEATURES, dtype=float)
