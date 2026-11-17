@@ -49,6 +49,13 @@ TRAIL_COLORS = {
     "tidak tersedia": t.MUTED,
 }
 RISK_LABELS = {"tinggi": "Risiko tinggi", "sedang": "Risiko sedang", "rendah": "Risiko rendah"}
+DISPLAY_LABELS = {"SUSPICIOUS": "TIDAK TERVERIFIKASI"}
+
+
+def display_verdict_label(label_name: str) -> str:
+    """Label user-facing netral; field API label_name tidak diubah."""
+    name = str(label_name or "")
+    return DISPLAY_LABELS.get(name, name)
 
 
 def build_trail_rows(items: list[dict]) -> list[dict]:
@@ -119,12 +126,13 @@ class State(rx.State):
         return {"tinggi": t.RED, "sedang": t.YELLOW, "rendah": t.GREEN}.get(self.risk_level, t.MUTED)
 
     @rx.var
+    def display_label(self) -> str:
+        return display_verdict_label(self.label_name)
+
+    @rx.var
     def verdict_note(self) -> str:
         if self.label_name == "SUSPICIOUS":
-            return (
-                "Model tidak dapat memastikan URL ini aman atau phishing. "
-                "Periksa sendiri sebelum membuka atau memasukkan data."
-            )
+            return "Model tidak dapat memastikan apakah URL ini aman atau phishing, jadi periksa sendiri sebelum membuka atau memasukkan data."
         return self.reason
 
     @rx.var
@@ -136,7 +144,7 @@ class State(rx.State):
         if self.label_name == "PHISHING":
             return t.RED
         if self.label_name == "SUSPICIOUS":
-            return t.YELLOW
+            return t.MUTED
         return t.GREEN
 
     @rx.event

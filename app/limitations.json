@@ -1,0 +1,8 @@
+[
+  "Set legit berisi 137 URL dari 61 domain terdaftar dan dinilai oleh satu penilai, jadi keragamannya jauh lebih kecil dari jumlah host.",
+  "URL legit dikumpulkan dengan crawl terbatas dan tidak diverifikasi terhadap robots.txt.",
+  "Set final hanya berisi 34 URL legit, sehingga interval kepercayaannya lebar.",
+  "Seluruh 300 URL phishing berasal dari satu sumber (OpenPhish) pada satu hari pengumpulan, 2026-11-16.",
+  "Tanpa denylist, sistem tidak pernah menghasilkan vonis PHISHING pada URL legit yang diuji.",
+  "Model A memakai fitur konten halaman, jadi angkanya bukan perbandingan yang adil dengan Model B yang hanya membaca teks URL."
+]

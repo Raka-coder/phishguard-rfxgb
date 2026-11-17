@@ -128,21 +128,25 @@ def verdict_card() -> rx.Component:
             rx.box(
                 rx.image(
                     src=rx.cond(State.is_phishing, "/img/phishing.png", "/img/legit.png"),
-                    alt=State.label_name,
+                    alt=State.display_label,
                     style={"width": "100%", "height": "100%", "object_fit": "contain", "object_position": "bottom"},
                 ),
                 style={
                     "width": "112px",
                     "height": "120px",
                     "flex_shrink": "0",
-                    "background": rx.cond(State.is_phishing, t.P5_RED, t.WHITE),
+                    "background": rx.cond(
+                        State.is_phishing,
+                        t.P5_RED,
+                        rx.cond(State.label_name == "SUSPICIOUS", t.MUTED, t.WHITE),
+                    ),
                     "clip_path": "polygon(12% 0, 100% 0, 88% 100%, 0 100%)",
                     "overflow": "hidden",
                 },
             ),
             rx.vstack(
                 rx.text(
-                    State.label_name,
+                    State.display_label,
                     style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
                 ),
                 muted(State.verdict_note),

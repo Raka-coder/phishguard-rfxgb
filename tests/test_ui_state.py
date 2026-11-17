@@ -1,7 +1,7 @@
 """Kontrak baris UI "Jejak keputusan": hasil lapisan -> warna status."""
 
 from app import style as t
-from app.app_state import build_trail_rows
+from app.app_state import build_trail_rows, display_verdict_label
 
 
 def test_build_trail_rows_maps_result_to_color():
@@ -22,3 +22,10 @@ def test_build_trail_rows_handles_empty_and_unknown_result():
     assert build_trail_rows([]) == []
     assert build_trail_rows(None) == []
     assert build_trail_rows([{"layer": "x", "result": "baru"}])[0]["color"] == t.MUTED
+
+
+def test_display_verdict_label_is_neutral_for_suspicious():
+    assert display_verdict_label("SUSPICIOUS") == "TIDAK TERVERIFIKASI"
+    assert display_verdict_label("PHISHING") == "PHISHING"
+    assert display_verdict_label("LEGITIMATE") == "LEGITIMATE"
+    assert display_verdict_label("") == ""

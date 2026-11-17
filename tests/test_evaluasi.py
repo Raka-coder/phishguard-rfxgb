@@ -1,18 +1,26 @@
 """Kontrak helper halaman evaluasi: angka harus mengikuti artefak sumbernya."""
 
 from app.pages.evaluasi import (
+    build_age_chart,
     build_benchmark_rows,
     build_candidate_rows,
     build_denylist_rows,
+    build_denylist_sentence,
     build_limitations,
+    build_mcc_chart,
     build_realworld_metrics,
+    build_realworld_panel_data,
     build_roc_shift,
     build_sensitivity_rows,
     build_test_metrics,
+    build_verdict_chart,
     build_www_effect,
     format_count,
     format_delta,
+    format_hours,
+    format_percent_value,
     format_pct,
+    load_limitation_items,
 )
 
 
@@ -126,8 +134,19 @@ def test_build_candidate_rows_keeps_suspicious_as_its_own_category():
     assert row["candidate"] == "zeta"
     assert row["benar"] == format_count(4 + 3)
     assert row["salah"] == format_count(1 + 2)
-    assert row["suspicious"] == f"{format_count(5)} ({format_pct(12.34)}%)"
+    assert row["suspicious"] == f"{format_count(5)} ({format_percent_value(12.34)})"
+    assert row["split"] == "berkelompok"
     assert "suspicious_n" not in row
+
+
+def test_build_candidate_rows_marks_old_test_set_as_acak():
+    md = _markdown("0.9", "0.8", "0.7", "0.75", "1", "2", "3", "4")
+    rows = build_candidate_rows({}, md)
+    assert len(rows) == 1
+    assert rows[0]["split"] == "acak"
+    assert rows[0]["candidate"] == "Model B"
+    assert rows[0]["n"] == format_count(10)
+    assert rows[0]["suspicious"] == "tidak berlaku"
 
 
 def test_diagnostic_helpers_follow_model_c_and_t25():

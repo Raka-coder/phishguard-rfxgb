@@ -16,6 +16,7 @@ REALWORLD_PATH = ROOT / "docs" / "realworld.json"
 MODEL_C_PATH = ROOT / "docs" / "model_c.json"
 DENYLIST_PATH = ROOT / "docs" / "denylist.json"
 T25_PATH = ROOT / "docs" / "t25.json"
+LIMITATIONS_PATH = ROOT / "app" / "limitations.json"
 
 MODEL_GROUPS = (("model_a", "Model A (full)"), ("model_b", "Model B (URL-only)"))
 ALGOS = ("lr", "rf", "xgb")
@@ -38,7 +39,7 @@ def build_cv_rows(metrics: dict) -> list[list[str]]:
                 [
                     label,
                     model.upper(),
-                    f"{float(info.get('cv_f1_phishing_mean', 0.0)):.4f}",
+                    format_pct(info.get("cv_f1_phishing_mean")),
                     "★" if model == data.get("best") else "",
                 ]
             )
@@ -102,21 +103,41 @@ def clean_report(markdown: str) -> str:
 
 
 def format_pct(value) -> str:
-    """Empat desimal; nilai kosong -> '—'. Angka tetap berasal dari JSON/markdown."""
+    """Rasio 0-1 dari artefak menjadi persen; kosong -> 'tidak berlaku'."""
     if value in (None, ""):
-        return "—"
+        return "tidak berlaku"
     try:
-        return f"{float(value):.4f}"
+        return f"{float(value) * 100:.2f}%"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_percent_value(value) -> str:
+    """Nilai yang sudah berskala persen di artefak (mis. suspicious_pct)."""
+    if value in (None, ""):
+        return "tidak berlaku"
+    try:
+        return f"{float(value):.2f}%"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_hours(value) -> str:
+    """Selang antarsnapshot dalam jam."""
+    if value in (None, ""):
+        return "tidak berlaku"
+    try:
+        return f"{float(value):.2f} jam"
     except (TypeError, ValueError):
         return str(value)
 
 
 def format_delta(value) -> str:
-    """Tanda plus/minus untuk selisih antarartefak."""
+    """Tanda plus/minus untuk selisih antarartefak, dalam persen."""
     if value in (None, ""):
-        return "—"
+        return "tidak berlaku"
     try:
-        return f"{float(value):+.4f}"
+        return f"{float(value) * 100:+.2f}%"
     except (TypeError, ValueError):
         return str(value)
 
@@ -168,7 +189,7 @@ def _one_block(block: dict) -> dict:
         "precision": format_pct(block.get("precision")),
         "recall": format_pct(block.get("recall")),
         "f1": format_pct(block.get("f1")),
-        "accuracy": "—",
+        "accuracy": "tidak berlaku",
         "fp_rate": format_pct(block.get("fp_rate")),
         "fp_rate_ci": f"{format_pct(ci_fp.get('low'))}–{format_pct(ci_fp.get('high'))}",
         "recall_ci": f"{format_pct(ci_recall.get('low'))}–{format_pct(ci_recall.get('high'))}",
@@ -192,8 +213,8 @@ def build_benchmark_rows(metrics: dict, realworld: dict, hasil_md: str) -> list[
             "recall": format_pct(test.get("recall")),
             "f1": format_pct(test.get("f1")),
             "accuracy": format_pct(test.get("accuracy")),
-            "fp_rate_ci": "—",
-            "recall_ci": "—",
+            "fp_rate_ci": "tidak berlaku",
+            "recall_ci": "tidak berlaku",
         }
     )
     rw = build_realworld_metrics(realworld)
@@ -220,7 +241,7 @@ def build_roc_shift(model_c: dict, candidate: str = "B_refit") -> dict:
     delta = (
         format_delta(float(test_auc) - float(rw_auc))
         if test_auc is not None and rw_auc is not None
-        else "—"
+        else "tidak berlaku"
     )
     return {
         "candidate": candidate,
@@ -231,9 +252,28 @@ def build_roc_shift(model_c: dict, candidate: str = "B_refit") -> dict:
     }
 
 
-def build_candidate_rows(t25: dict) -> list[dict]:
-    """Per kandidat T25: benar/salah pada grouped test + SUSPICIOUS sebagai kategori sendiri."""
+def build_candidate_rows(t25: dict, hasil_md: str = "") -> list[dict]:
+    """Benar/salah per kandidat; SUSPICIOUS kategori sendiri; split acak vs berkelompok."""
     rows: list[dict] = []
+    old = build_test_metrics(hasil_md)
+    if old:
+        rows.append(
+            {
+                "split": "acak",
+                "candidate": "Model B",
+                "n": format_count(old["tp"] + old["fn"] + old["fp"] + old["tn"]),
+                "benar": format_count(old["tp"] + old["tn"]),
+                "salah": format_count(old["fp"] + old["fn"]),
+                "tp": format_count(old["tp"]),
+                "fp": format_count(old["fp"]),
+                "fn": format_count(old["fn"]),
+                "tn": format_count(old["tn"]),
+                "precision": format_pct(old["precision"]),
+                "recall": format_pct(old["recall"]),
+                "f1": format_pct(old["f1"]),
+                "suspicious": format_pct(None),
+            }
+        )
     for name, block in sorted(((t25 or {}).get("test_grouped") or {}).items()):
         if not isinstance(block, dict):
             continue
@@ -241,8 +281,12 @@ def build_candidate_rows(t25: dict) -> list[dict]:
         fp = int(block.get("fp") or 0)
         fn = int(block.get("fn") or 0)
         tn = int(block.get("tn") or 0)
+        suspicious = format_percent_value(block.get("suspicious_pct"))
+        if block.get("suspicious_n") is not None:
+            suspicious = f"{format_count(block.get('suspicious_n'))} ({suspicious})"
         rows.append(
             {
+                "split": "berkelompok",
                 "candidate": str(name),
                 "n": format_count(block.get("n")),
                 "benar": format_count(tp + tn),
@@ -254,9 +298,7 @@ def build_candidate_rows(t25: dict) -> list[dict]:
                 "precision": format_pct(block.get("precision")),
                 "recall": format_pct(block.get("recall")),
                 "f1": format_pct(block.get("f1")),
-                "suspicious": (
-                    f"{format_count(block.get('suspicious_n'))} ({format_pct(block.get('suspicious_pct'))}%)"
-                ),
+                "suspicious": suspicious,
             }
         )
     return rows
@@ -320,7 +362,7 @@ def build_denylist_rows(denylist: dict) -> list[dict]:
             n_host = format_count(overlap.get("n_host_overlap"))
             n_domain = format_count(overlap.get("n_domain_overlap"))
             n_new = format_count(overlap.get("n_new_in_b"))
-            hours = format_pct(overlap.get("hours_between_snapshots"))
+            hours = format_hours(overlap.get("hours_between_snapshots"))
             rows.append(
                 {
                     "kind": "overlap",
@@ -337,8 +379,8 @@ def build_denylist_rows(denylist: dict) -> list[dict]:
             )
     for age in (denylist or {}).get("age_curve") or []:
         if isinstance(age, dict):
-            hours = format_pct(age.get("hours_between_snapshots"))
-            pct = format_pct(age.get("pct_still_present"))
+            hours = format_hours(age.get("hours_between_snapshots"))
+            pct = format_percent_value(age.get("pct_still_present"))
             rows.append(
                 {
                     "kind": "age",
@@ -386,6 +428,130 @@ def build_denylist_rows(denylist: dict) -> list[dict]:
     return rows
 
 
+# --- T22b: diagnostik dunia nyata dan keterbatasan ---------------------------
+def _realworld_split(t25: dict, split: str) -> dict:
+    return (((t25 or {}).get("evaluation") or {}).get("realworld") or {}).get(split) or {}
+
+
+def build_realworld_panel_data(t25: dict) -> dict:
+    """Judul dan baris dev/final; semua angka dibaca dari docs/t25.json."""
+    dev, final = _realworld_split(t25, "dev"), _realworld_split(t25, "final")
+    rows: list[dict] = []
+    for split, block in (("dev", dev), ("final", final)):
+        n = format_count(block.get("n"))
+        for name, c in sorted((block.get("candidates") or {}).items()):
+            if not isinstance(c, dict):
+                continue
+            ci_s, ci_r = c.get("specificity_ci95") or {}, c.get("recall_ci95") or {}
+            rows.append(
+                {
+                    "set": split,
+                    "n": n,
+                    "candidate": str(name),
+                    "specificity_strict": format_pct(c.get("specificity_strict")),
+                    "specificity_ci": f"{format_pct(ci_s.get('low'))}–{format_pct(ci_s.get('high'))}",
+                    "recall": format_pct(c.get("recall")),
+                    "recall_ci": f"{format_pct(ci_r.get('low'))}–{format_pct(ci_r.get('high'))}",
+                    "recall_terjaring": format_pct(c.get("recall_terjaring")),
+                    "mcc": format_pct(c.get("mcc")),
+                    "suspicious": format_percent_value(c.get("suspicious_pct")),
+                }
+            )
+    return {
+        "title": f"Dunia nyata: dev ({format_count(dev.get('n'))} URL) dan final ({format_count(final.get('n'))} URL)",
+        "rows": rows,
+    }
+
+
+def _mcc(block: dict) -> float | None:
+    value = (block or {}).get("mcc")
+    return round(float(value), 4) if value is not None else None
+
+
+def build_mcc_chart(t25: dict) -> list[dict]:
+    """MCC kandidat: test set berkelompok vs dunia nyata dev/final."""
+    test = (t25 or {}).get("test_grouped") or {}
+    dev = (_realworld_split(t25, "dev").get("candidates") or {})
+    final = (_realworld_split(t25, "final").get("candidates") or {})
+    return [
+        {
+            "candidate": name,
+            "PhiUSIIL": _mcc(test.get(name)),
+            "dev": _mcc(dev.get(name)),
+            "final": _mcc(final.get(name)),
+        }
+        for name in sorted(dev)
+    ]
+
+
+def build_verdict_chart(t25: dict) -> list[dict]:
+    """Komposisi vonis pada URL legit: FP = PHISHING, SUSPICIOUS, sisanya LEGITIMATE."""
+    rows: list[dict] = []
+    for split in ("dev", "final"):
+        groups = ((_realworld_split(t25, split).get("groups") or {}).get("all") or {})
+        for name, c in sorted(groups.items()):
+            if not isinstance(c, dict):
+                continue
+            fp = int(c.get("fp") or 0)
+            suspicious = int(c.get("suspicious_legit_n") or 0)
+            rows.append(
+                {
+                    "candidate": f"{split} · {name}",
+                    "PHISHING": fp,
+                    "SUSPICIOUS": suspicious,
+                    "LEGITIMATE": max(0, int(c.get("tn") or 0) - suspicious),
+                }
+            )
+    return rows
+
+
+def build_age_chart(denylist: dict) -> dict:
+    """Kurva umur entri; pasangan snapshot <1 jam diabaikan karena duplikat."""
+    rows: list[dict] = []
+    skipped = 0
+    for item in (denylist or {}).get("age_curve") or []:
+        hours = float(item.get("hours_between_snapshots") or 0)
+        if hours < 1:
+            skipped += 1
+            continue
+        rows.append(
+            {
+                "snapshot": str(item.get("later_snapshot") or item.get("snapshot") or ""),
+                "hours": round(hours, 3),
+                "still": float(item.get("pct_still_present") or 0),
+            }
+        )
+    for item in (denylist or {}).get("overlap") or []:
+        if float(item.get("hours_between_snapshots") or 0) < 1:
+            skipped += 1
+    return {"rows": rows, "skipped": skipped}
+
+
+def build_denylist_sentence(denylist: dict) -> str:
+    """Satu kalimat ringkasan vonis tanpa denylist, dari docs/denylist.json."""
+    results = (((denylist or {}).get("full_system") or {}).get("results") or {})
+    block = results.get("denylist_disabled") or {}
+    parts = []
+    for group in ("legit_dev", "legit_final"):
+        item = block.get(group) or {}
+        verdicts = item.get("verdicts") or {}
+        n = int(item.get("n_tested") or 0)
+        legitimate = int(verdicts.get("LEGITIMATE") or 0)
+        pct = format_percent_value(legitimate / n * 100) if n else "tidak berlaku"
+        parts.append(f"{group}: PHISHING {format_count(verdicts.get('PHISHING'))} dari {format_count(n)}, LEGITIMATE {pct}")
+    return "Tanpa denylist, sistem hampir tidak pernah yakin bahwa URL itu legit — " + "; ".join(parts) + "."
+
+
+def load_limitation_items() -> list[str]:
+    """Keterbatasan dibaca dari app/limitations.json, bukan diketik di komponen."""
+    try:
+        data = json.loads(LIMITATIONS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    items = data if isinstance(data, list) else (data.get("items") or [])
+    return [str(item) for item in items if str(item)]
+
+
 def build_limitations(model_c: dict) -> list[str]:
     """Daftar keterbatasan dari docs/model_c.json."""
     return [str(item) for item in ((model_c or {}).get("limitations") or []) if str(item)]
@@ -420,6 +586,13 @@ class EvalState(rx.State):
     www_effect: dict = {}
     denylist_rows: list[dict] = []
     limitations: list[str] = []
+    realworld_title: str = ""
+    realworld_rows: list[dict] = []
+    mcc_chart: list[dict] = []
+    verdict_chart: list[dict] = []
+    age_chart: list[dict] = []
+    age_skipped: int = 0
+    denylist_sentence: str = ""
 
     def _kosongkan_tambahan(self):
         self.tambahan_ok = False
@@ -430,6 +603,13 @@ class EvalState(rx.State):
         self.www_effect = {}
         self.denylist_rows = []
         self.limitations = []
+        self.realworld_title = ""
+        self.realworld_rows = []
+        self.mcc_chart = []
+        self.verdict_chart = []
+        self.age_chart = []
+        self.age_skipped = 0
+        self.denylist_sentence = ""
 
     @rx.var
     def trained_date(self) -> str:
@@ -481,11 +661,20 @@ class EvalState(rx.State):
 
         self.benchmark_rows = build_benchmark_rows(metrics, realworld, hasil)
         self.roc_shift = build_roc_shift(model_c)
-        self.candidate_rows = build_candidate_rows(t25)
+        self.candidate_rows = build_candidate_rows(t25, hasil)
         self.sensitivity_rows = build_sensitivity_rows(model_c)
         self.www_effect = build_www_effect(t25)
         self.denylist_rows = build_denylist_rows(denylist)
-        self.limitations = build_limitations(model_c)
+        self.limitations = load_limitation_items() or build_limitations(model_c)
+        panel = build_realworld_panel_data(t25)
+        self.realworld_title = panel["title"]
+        self.realworld_rows = panel["rows"]
+        self.mcc_chart = build_mcc_chart(t25)
+        self.verdict_chart = build_verdict_chart(t25)
+        age = build_age_chart(denylist)
+        self.age_chart = age["rows"]
+        self.age_skipped = age["skipped"]
+        self.denylist_sentence = build_denylist_sentence(denylist)
         self.tambahan_ok = True
 
 
@@ -867,7 +1056,8 @@ def candidate_panel() -> rx.Component:
     return card(
         card_title("layers", "Kandidat T25: benar, salah, dan SUSPICIOUS"),
         muted(
-            "Benar = TP+TN; salah = FP+FN. SUSPICIOUS dihitung terpisah, tidak dibuang ke legit.",
+            "Benar = TP+TN; salah = FP+FN; SUSPICIOUS bukan salah. Split 'acak' berasal dari "
+            "hasil_evaluasi.md, 'berkelompok' dari T25.",
             size="1",
             style={"margin_top": "6px", "margin_bottom": "12px"},
         ),
@@ -875,6 +1065,7 @@ def candidate_panel() -> rx.Component:
             rx.table.root(
                 rx.table.header(
                     rx.table.row(
+                        _head("Split"),
                         _head("Kandidat"),
                         _head("n", "right"),
                         _head("Benar", "right"),
@@ -891,6 +1082,7 @@ def candidate_panel() -> rx.Component:
                     rx.foreach(
                         EvalState.candidate_rows,
                         lambda row: rx.table.row(
+                            _cell(row["split"], "left"),
                             _cell(row["candidate"], "left"),
                             _cell(row["n"]),
                             _cell(row["benar"]),
@@ -908,6 +1100,107 @@ def candidate_panel() -> rx.Component:
                 variant="ghost",
             ),
             style={"overflow_x": "auto", "width": "100%"},
+        ),
+    )
+
+
+def realworld_panel() -> rx.Component:
+    return card(
+        card_title("globe", EvalState.realworld_title),
+        muted(
+            "Spesifisitas ketat = URL legit yang benar-benar diterima; MCC dan recall memakai "
+            "phishing sebagai kelas positif. SUSPICIOUS dilaporkan sendiri, bukan dimasukkan salah.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "12px"},
+        ),
+        rx.box(
+            rx.table.root(
+                rx.table.header(
+                    rx.table.row(
+                        _head("Set"),
+                        _head("Kandidat"),
+                        _head("n", "right"),
+                        _head("Spesif. ketat (%)", "right"),
+                        _head("CI spesif. (%)", "right"),
+                        _head("Recall (%)", "right"),
+                        _head("CI recall (%)", "right"),
+                        _head("Recall terjaring (%)", "right"),
+                        _head("MCC", "right"),
+                        _head("SUSPICIOUS (%)", "right"),
+                    )
+                ),
+                rx.table.body(
+                    rx.foreach(
+                        EvalState.realworld_rows,
+                        lambda row: rx.table.row(
+                            _cell(row["set"], "left"),
+                            _cell(row["candidate"], "left"),
+                            _cell(row["n"]),
+                            _cell(row["specificity_strict"]),
+                            _cell(row["specificity_ci"]),
+                            _cell(row["recall"]),
+                            _cell(row["recall_ci"]),
+                            _cell(row["recall_terjaring"]),
+                            _cell(row["mcc"]),
+                            _cell(row["suspicious"]),
+                        ),
+                    )
+                ),
+                width="100%",
+                variant="ghost",
+            ),
+            style={"overflow_x": "auto", "width": "100%"},
+        ),
+        muted("Interval kepercayaan Wilson 95%, dibaca apa adanya dari docs/t25.json.", size="1"),
+    )
+
+
+def mcc_shift_panel() -> rx.Component:
+    return card(
+        card_title("chart-bar", "MCC turun dari PhiUSIIL ke dunia nyata"),
+        muted(
+            "MCC kandidat yang sama pada test set berkelompok dan pada dua set dunia nyata. "
+            "Sumbu dibatasi -0,1 sampai 1 supaya selisihnya terlihat; 0 berarti tidak lebih baik dari tebakan acak.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "10px"},
+        ),
+        rx.recharts.bar_chart(
+            rx.recharts.cartesian_grid(**GRID),
+            rx.recharts.bar(data_key="PhiUSIIL", fill=t.ORANGE),
+            rx.recharts.bar(data_key="dev", fill=t.PURPLE),
+            rx.recharts.bar(data_key="final", fill=t.PURPLE_LIGHT),
+            rx.recharts.x_axis(data_key="candidate", stroke=t.MUTED),
+            rx.recharts.y_axis(domain=[-0.1, 1], stroke=t.MUTED, width=52),
+            rx.recharts.graphing_tooltip(content_style=TOOLTIP_STYLE),
+            rx.recharts.legend(),
+            data=EvalState.mcc_chart,
+            width="100%",
+            height=280,
+        ),
+    )
+
+
+def verdict_panel() -> rx.Component:
+    return card(
+        card_title("layers", "Sistem jarang yakin bahwa URL itu legit"),
+        muted(
+            "Komposisi vonis pada URL legit, per kandidat dan per set. Merah = salah dianggap "
+            "phishing, kuning = SUSPICIOUS, hijau = benar diterima.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "10px"},
+        ),
+        rx.recharts.bar_chart(
+            rx.recharts.cartesian_grid(**GRID),
+            rx.recharts.bar(data_key="PHISHING", stack_id="1", fill=t.RED),
+            rx.recharts.bar(data_key="SUSPICIOUS", stack_id="1", fill=t.YELLOW),
+            rx.recharts.bar(data_key="LEGITIMATE", stack_id="1", fill=t.GREEN),
+            rx.recharts.x_axis(data_key="candidate", stroke=t.MUTED, height=60),
+            rx.recharts.y_axis(stroke=t.MUTED, width=52),
+            rx.recharts.graphing_tooltip(content_style=TOOLTIP_STYLE),
+            rx.recharts.legend(),
+            data=EvalState.verdict_chart,
+            width="100%",
+            height=300,
         ),
     )
 
@@ -966,28 +1259,27 @@ def tested_panel() -> rx.Component:
 
 def denylist_panel() -> rx.Component:
     return card(
-        card_title("shield", "Denylist: umur, tumpang tindih, dan dampaknya"),
-        muted(
-            "Angka dari docs/denylist.json. Sistem penuh diuji dengan denylist dimatikan "
-            "atau memakai snapshot eksternal.",
-            size="1",
-            style={"margin_top": "6px", "margin_bottom": "12px"},
-        ),
-        rx.vstack(
-            rx.foreach(
-                EvalState.denylist_rows,
-                lambda row: rx.hstack(
-                    rx.text(row["label"], size="1", style={"font_weight": "600"}),
-                    rx.spacer(),
-                    rx.text(row["value"], size="1", style={"color": t.MUTED, "text_align": "right"}),
-                    width="100%",
-                    wrap="wrap",
-                    spacing="2",
-                    style={"border_bottom": f"1px solid {t.LINE}", "padding": "6px 0"},
-                ),
-            ),
-            spacing="0",
+        card_title("shield", "Denylist: umur entri"),
+        muted(EvalState.denylist_sentence, size="1", style={"margin_top": "6px", "margin_bottom": "12px"}),
+        rx.recharts.line_chart(
+            rx.recharts.cartesian_grid(**GRID),
+            rx.recharts.line(data_key="still", stroke=t.PURPLE, type_="monotone", dot=True),
+            rx.recharts.x_axis(data_key="hours", stroke=t.MUTED, width=70),
+            rx.recharts.y_axis(stroke=t.MUTED, width=52),
+            rx.recharts.graphing_tooltip(content_style=TOOLTIP_STYLE),
+            data=EvalState.age_chart,
             width="100%",
+            height=260,
+        ),
+        muted(
+            "Sumbu x = selisih jam antarsnapshot, sumbu y = persentase entri yang masih ada. "
+            "Pasangan snapshot dengan selisih <1 jam dilewati karena duplikat, bukan perubahan umur.",
+            size="1",
+        ),
+        rx.hstack(
+            muted("Pasangan dilewati:", size="1"),
+            rx.text(EvalState.age_skipped, size="1", style={"color": t.MUTED, "font_weight": "700"}),
+            spacing="1",
         ),
     )
 
@@ -995,7 +1287,7 @@ def denylist_panel() -> rx.Component:
 def limitations_panel() -> rx.Component:
     return card(
         card_title("triangle-alert", "Keterbatasan yang jujur"),
-        muted("Dibaca langsung dari docs/model_c.json.", size="1", style={"margin_top": "6px", "margin_bottom": "12px"}),
+        muted("Dibaca langsung dari app/limitations.json.", size="1", style={"margin_top": "6px", "margin_bottom": "12px"}),
         rx.vstack(
             rx.foreach(
                 EvalState.limitations,
@@ -1023,7 +1315,7 @@ def loaded_view() -> rx.Component:
             style={"width": "100%"},
         ),
         rx.grid(
-            stat_card(EvalState.best_b, "Model di aplikasi"),
+            stat_card("Model B + Model C + aturan", "Model di aplikasi"),
             stat_card(EvalState.n_features_b, "Fitur Model B"),
             stat_card(EvalState.n_train, "Data latih"),
             stat_card(EvalState.n_test, "Data uji"),
@@ -1059,8 +1351,11 @@ def loaded_view() -> rx.Component:
             EvalState.tambahan_ok,
             rx.vstack(
                 benchmark_panel(),
+                realworld_panel(),
+                mcc_shift_panel(),
                 roc_shift_panel(),
                 candidate_panel(),
+                verdict_panel(),
                 tested_panel(),
                 denylist_panel(),
                 limitations_panel(),
