@@ -23,7 +23,7 @@ INPUT_BG = "#FFFFFF"
 
 # --- Teks -------------------------------------------------------------------
 TEXT = "#FFFFFF"
-MUTED = "#C9C9C9"
+MUTED = "#FFFFFF"  # semua teks biasa (Public Sans) putih
 WHITE = "#FFFFFF"
 BLACK = "#000000"
 
@@ -39,6 +39,7 @@ YELLOW = "#FFD400"
 GREEN = "#4ADE80"
 GREEN_SOLID = "#15803D"
 NEUTRAL_SOLID = "#3B3B3B"
+LEGIT_PANEL = "#333333"  # latar panel gambar legit: hitam sedikit lebih terang
 
 GRADIENT = P5_RED  # tombol/penanda utama: merah solid
 PAGE_GLOW = (
@@ -47,16 +48,16 @@ PAGE_GLOW = (
 )
 
 # --- Tipografi --------------------------------------------------------------
-FONT = "'Times New Roman', Times, serif"
+FONT = "'Public Sans', system-ui, sans-serif"
 DISPLAY_FONT = "'P5', Impact, 'Arial Black', sans-serif"
-SERIF_FONT = "'Times New Roman', Times, serif"
-HEAVY_FONT = "'Times New Roman', Times, serif"
-MONO_FONT = "'Times New Roman', Times, serif"  # hanya 2 font: Persona 5 + Times New Roman
+SERIF_FONT = FONT  # nama lama; sekarang Public Sans
+HEAVY_FONT = FONT
+MONO_FONT = FONT  # hanya 2 font: Persona 5 + Public Sans
 STYLESHEETS = ["/p5.css"]
 
 # --- Tema Radix + style global ---------------------------------------------
 THEME = rx.theme(appearance="dark", accent_color="red", gray_color="gray", radius="none")
-APP_STYLE = {"font_family": FONT, "font_size": "18px"}
+APP_STYLE = {"font_family": FONT, "font_size": "16px", "font_weight": "500", "color": TEXT}
 
 # --- Kompatibilitas nama lama ----------------------------------------------
 LINK_COLOR = PURPLE_LIGHT

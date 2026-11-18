@@ -4,7 +4,7 @@ import reflex as rx
 
 from app import style as t
 
-DISPLAY = {"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "letter_spacing": "1px"}
+DISPLAY = {"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "letter_spacing": "1px", "text_shadow": "none"}
 
 
 def card(*children, **style_overrides) -> rx.Component:
@@ -28,7 +28,7 @@ def card_title(icon: str, text: str) -> rx.Component:
             rx.icon(icon, size=20, style={"color": t.WHITE}),
             rx.text(
                 text,
-                style={"font_family": t.SERIF_FONT, "font_weight": "700", "text_transform": "uppercase", "letter_spacing": "1px", "font_size": "1.2rem", "color": t.WHITE},
+                style={"font_family": t.SERIF_FONT, "font_weight": "800", "text_transform": "uppercase", "letter_spacing": "1.5px", "font_size": "1.05rem", "color": t.WHITE, "text_shadow": f"2px 2px 0 {t.BLACK}"},
             ),
             align="center",
             spacing="2",
@@ -39,6 +39,25 @@ def card_title(icon: str, text: str) -> rx.Component:
             "background": t.P5_RED,
             "padding": "4px 18px",
             "transform": "skewX(-14deg)",
+        },
+    )
+
+
+def p5_callout(content, icon: str = "info", warn: bool = False) -> rx.Component:
+    """Pengganti rx.callout: info = hitam + garis merah; warn = merah solid. Gaya Persona 5."""
+    return rx.hstack(
+        rx.icon(icon, size=22, style={"color": t.WHITE if warn else t.P5_RED, "flex_shrink": "0"}),
+        rx.text(content, style={"color": t.WHITE, "font_weight": "600"}),
+        align="center",
+        spacing="3",
+        style={
+            "width": "100%",
+            "background": t.P5_RED if warn else t.BLACK,
+            "border": f"3px solid {t.WHITE}",
+            "border_left": f"12px solid {t.WHITE if warn else t.P5_RED}",
+            "border_radius": "0",
+            "padding": "12px 18px",
+            "box_shadow": f"6px 6px 0 {t.BLACK if warn else '#333333'}",
         },
     )
 

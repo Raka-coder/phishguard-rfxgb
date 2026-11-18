@@ -50,7 +50,7 @@ TRAIL_COLORS = {
     "tidak tersedia": t.MUTED,
 }
 RISK_LABELS = {"tinggi": "Risiko tinggi", "sedang": "Risiko sedang", "rendah": "Risiko rendah"}
-DISPLAY_LABELS = {"SUSPICIOUS": "TIDAK TERVERIFIKASI"}
+DISPLAY_LABELS = {"SUSPICIOUS": "SUSPICIOUS"}
 
 # Urutan pipeline untuk visualisasi di halaman cek URL (Layer 0-4).
 LAYER_STEPS = [
@@ -171,7 +171,7 @@ class State(rx.State):
         if self.label_name == "PHISHING":
             return t.RED
         if self.label_name == "SUSPICIOUS":
-            return t.MUTED
+            return t.YELLOW
         return t.GREEN
 
     @rx.event

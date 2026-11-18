@@ -4,7 +4,7 @@ import reflex as rx
 
 from app import style as t
 from app.app_state import State
-from app.components import card, card_title, muted, page_shell
+from app.components import card, card_title, muted, p5_callout, page_shell
 
 EXAMPLES = [
     ("Coba contoh mencurigakan", "http://192.168.0.1/paypal-login-verify.xyz"),
@@ -55,6 +55,7 @@ def search_card() -> rx.Component:
                         "box_shadow": f"6px 6px 0 {t.P5_RED}",
                         "border": f"4px solid {t.BLACK}",
                         "color": t.BLACK,
+                        "text_shadow": "none",
                         "font_weight": "700",
                     },
                 ),
@@ -69,6 +70,7 @@ def search_card() -> rx.Component:
                         "background": t.BLACK,
                         "color": t.P5_RED,
                         "font_family": t.DISPLAY_FONT,
+                        "text_shadow": "none",
                         "text_transform": "uppercase",
                         "font_size": "1.35rem",
                         "padding": "0 32px",
@@ -97,7 +99,7 @@ def search_card() -> rx.Component:
 
 
 def error_callout() -> rx.Component:
-    return rx.callout(State.error, icon="triangle-alert", color_scheme="red", style={"width": "100%"})
+    return p5_callout(State.error, icon="triangle-alert", warn=True)
 
 
 def empty_state() -> rx.Component:
@@ -127,7 +129,11 @@ def verdict_card() -> rx.Component:
         rx.hstack(
             rx.box(
                 rx.image(
-                    src=rx.cond(State.is_phishing, "/img/phishing.png", "/img/legit.png"),
+                    src=rx.cond(
+                        State.is_phishing,
+                        "/img/phishing.png",
+                        rx.cond(State.label_name == "SUSPICIOUS", "/img/suspicious.png", "/img/legit.png"),
+                    ),
                     alt=State.display_label,
                     style={"width": "100%", "height": "100%", "object_fit": "contain", "object_position": "bottom"},
                 ),
@@ -138,7 +144,7 @@ def verdict_card() -> rx.Component:
                     "background": rx.cond(
                         State.is_phishing,
                         t.P5_RED,
-                        rx.cond(State.label_name == "SUSPICIOUS", t.MUTED, t.WHITE),
+                        rx.cond(State.label_name == "SUSPICIOUS", t.YELLOW, t.LEGIT_PANEL),
                     ),
                     "clip_path": "polygon(12% 0, 100% 0, 88% 100%, 0 100%)",
                     "overflow": "hidden",
@@ -147,13 +153,13 @@ def verdict_card() -> rx.Component:
             rx.vstack(
                 rx.text(
                     State.display_label,
-                    style={"font_family": t.DISPLAY_FONT, "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
+                    style={"font_family": t.DISPLAY_FONT, "text_shadow": "none", "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
                 ),
                 muted(State.verdict_note),
                 rx.hstack(
                     rx.badge(
                         State.risk_label,
-                        style={"background": State.risk_color, "color": t.WHITE, "border_radius": "0", "font_weight": "700"},
+                        style={"background": State.risk_color, "color": t.BLACK, "border_radius": "0", "font_weight": "800"},
                     ),
                     rx.badge(State.decision_source, color_scheme="gray", variant="soft"),
                     spacing="2",
@@ -328,7 +334,7 @@ def render_trail(item: rx.Var[dict]) -> rx.Component:
                         item["result"],
                         style={
                             "background": item["color"],
-                            "color": t.WHITE,
+                            "color": t.BLACK,
                             "border_radius": "0",
                             "white_space": "nowrap",
                         },
