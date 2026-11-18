@@ -355,6 +355,42 @@ def render_trail(item: rx.Var[dict]) -> rx.Component:
     )
 
 
+def render_layer_step(item: rx.Var[dict]) -> rx.Component:
+    return rx.box(
+        rx.text(item["step"], size="1", style={**MONO, "color": t.MUTED}),
+        rx.text(item["layer"], size="1", style={"font_weight": "600"}),
+        rx.badge(
+            item["result"],
+            style={"background": item["color"], "color": t.WHITE, "border_radius": "0", "font_size": "0.7rem"},
+        ),
+        style={
+            "background": t.CARD_2,
+            "border": f"1px solid {t.LINE}",
+            "border_radius": "0",
+            "padding": "8px 10px",
+            "min_width": "150px",
+            "flex": "1",
+        },
+    )
+
+
+def layer_pipeline_card() -> rx.Component:
+    return card(
+        card_title("git-branch", "Alur lapisan"),
+        muted(
+            "Layer 0 hanya aktif bila Google Safe Browsing dinyalakan. "
+            "Lapisan yang dilewati tetap ditampilkan agar tidak ada klaim tersembunyi.",
+            style={"margin_top": "6px", "margin_bottom": "14px"},
+        ),
+        rx.flex(
+            rx.foreach(State.layer_rows, render_layer_step),
+            wrap="wrap",
+            gap="2",
+            width="100%",
+        ),
+    )
+
+
 def trail_card() -> rx.Component:
     return card(
         card_title("route", "Jejak keputusan"),
@@ -377,6 +413,7 @@ def results_view() -> rx.Component:
             spacing="4",
             width="100%",
         ),
+        layer_pipeline_card(),
         trail_card(),
         features_card(),
         spacing="4",

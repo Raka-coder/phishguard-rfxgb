@@ -1,7 +1,8 @@
-"""Inference berlapis: denylist (belum ada) -> allowlist -> Model B+C -> shortener.
+"""Inference berlapis: Google SB (opsional) -> denylist -> allowlist -> Model B+C -> shortener.
 
-Model tunggal tidak pernah memvonis PHISHING; PHISHING hanya dari denylist.
-Setiap panggilan mengembalikan `trail` {layer, result, detail} dan `risk_level`.
+Model tunggal tidak pernah memvonis PHISHING; PHISHING hanya dari denylist atau
+Google Safe Browsing. Setiap panggilan mengembalikan `trail` {layer, result, detail}
+dan `risk_level`.
 """
 
 import json
@@ -34,6 +35,7 @@ from src.config import (
 from src.denylist import feed_status, is_denied
 from src.feature_utils import extract_features
 from src.features_host import to_host_frame
+from src.google_sb import check_google_safe_browsing, google_enabled
 from src.reputation import is_shortener, is_trusted
 
 _ALLOWED_SCHEMES = {"http", "https"}
@@ -178,6 +180,7 @@ def predict_url(url: str) -> dict:
     """Prediksi satu URL. Raise ValueError bila URL tidak valid (API memetakannya ke 400).
 
     Alur vonis (berhenti di lapisan pertama yang memutuskan):
+      0. Google Safe Browsing (opsional, default mati) -> PHISHING bila cocok.
       1. Denylist feed -> PHISHING (cocok offline; feed hilang/basi -> dilewati).
       2. Allowlist domain tepercaya -> LEGITIMATE.
       3. Model B + Model C: keduanya tinggi -> SUSPICIOUS/tinggi; keduanya rendah ->
@@ -188,6 +191,37 @@ def predict_url(url: str) -> dict:
     dengan metrik dan test lama; `verdict` adalah keputusan user-facing.
     """
     url = _validate(url)
+
+    # Layer 0: hanya bila diaktifkan eksplisit. Kegagalan API = lanjut ke layer offline.
+    gsb_ms = 0.0
+    google_trail: list[dict] = []
+    if google_enabled():
+        gsb_started = time.perf_counter()
+        match = check_google_safe_browsing(url)
+        gsb_ms = (time.perf_counter() - gsb_started) * 1000
+        if match:
+            threat_type = match.get("threat_type") or "UNKNOWN"
+            return {
+                "url": url,
+                "label": LABEL_PHISH,
+                "label_name": VERDICT_PHISHING,
+                "verdict": VERDICT_PHISHING,
+                "risk_level": "tinggi",
+                "probability": None,
+                "inference_ms": round(gsb_ms, 2),
+                "top_features": [],
+                "decision_source": "google_safe_browsing",
+                "reason": f"Google Safe Browsing menandai URL ini sebagai {threat_type}.",
+                "trail": [{"layer": "google_sb", "result": "phishing", "detail": threat_type}],
+            }
+        google_trail = [
+            {
+                "layer": "google_sb",
+                "result": "tidak cocok",
+                "detail": "Tidak ada match, atau API tidak tersedia (dianggap aman sementara).",
+            }
+        ]
+
     pipe, tld, stats = _load()  # sebelum timer, agar inference_ms panggilan pertama akurat
 
     started = time.perf_counter()
@@ -195,14 +229,14 @@ def predict_url(url: str) -> dict:
 
     status, feed_path, status_detail = feed_status()
     if status == "ok" and is_denied(url):
-        trail = [
+        trail = google_trail + [
             {
                 "layer": "denylist",
                 "result": "cocok",
                 "detail": f"URL ada di snapshot feed phishing ({feed_path.name if feed_path else ''}).",
             }
         ]
-        elapsed_ms = (time.perf_counter() - started) * 1000
+        elapsed_ms = (time.perf_counter() - started) * 1000 + gsb_ms
         return {
             "url": url,
             "label": LABEL_PHISH,
@@ -223,11 +257,11 @@ def predict_url(url: str) -> dict:
         denylist_entry = {"layer": "denylist", "result": "dilewati", "detail": status_detail}
     else:
         denylist_entry = {"layer": "denylist", "result": "tidak cocok", "detail": status_detail}
-    trail = [denylist_entry]
+    trail = google_trail + [denylist_entry]
 
     if is_trusted(host):
         trail.append({"layer": "allowlist", "result": "cocok", "detail": f"Domain {host} ada di allowlist tepercaya."})
-        elapsed_ms = (time.perf_counter() - started) * 1000
+        elapsed_ms = (time.perf_counter() - started) * 1000 + gsb_ms
         return {
             "url": url,
             "label": LABEL_LEGIT,
@@ -272,7 +306,7 @@ def predict_url(url: str) -> dict:
     )
 
     verdict, risk_level, decision_source, reason = _decide(probability, prob_c, shortener)
-    elapsed_ms = (time.perf_counter() - started) * 1000
+    elapsed_ms = (time.perf_counter() - started) * 1000 + gsb_ms
 
     label = LABEL_PHISH if probability >= THRESHOLD else LABEL_LEGIT
 

@@ -43,6 +43,7 @@ TRAIL_COLORS = {
     "tinggi": t.RED,
     "sedang": t.YELLOW,
     "rendah": t.GREEN,
+    "phishing": t.RED,
     "cocok": t.GREEN,
     "tidak cocok": t.MUTED,
     "dilewati": t.MUTED,
@@ -50,6 +51,15 @@ TRAIL_COLORS = {
 }
 RISK_LABELS = {"tinggi": "Risiko tinggi", "sedang": "Risiko sedang", "rendah": "Risiko rendah"}
 DISPLAY_LABELS = {"SUSPICIOUS": "TIDAK TERVERIFIKASI"}
+
+# Urutan pipeline untuk visualisasi di halaman cek URL (Layer 0-4).
+LAYER_STEPS = [
+    ("google_sb", "Google Safe Browsing"),
+    ("denylist", "Denylist feed"),
+    ("allowlist", "Allowlist domain"),
+    ("model", "Model B + C"),
+    ("shortener", "Shortener"),
+]
 
 
 def display_verdict_label(label_name: str) -> str:
@@ -71,6 +81,22 @@ def build_trail_rows(items: list[dict]) -> list[dict]:
                 "color": TRAIL_COLORS.get(result, t.MUTED),
             }
         )
+    return rows
+
+
+def build_layer_rows(items: list[dict]) -> list[dict]:
+    """Susun pipeline tetap Layer 0-4; lapisan yang tidak muncul ditandai jujur."""
+    by_layer = {str(item.get("layer", "")): item for item in items or []}
+    rows = []
+    for index, (key, label) in enumerate(LAYER_STEPS):
+        item = (by_layer.get("model_b") or by_layer.get("model_c")) if key == "model" else by_layer.get(key)
+        if item is None:
+            result = "tidak aktif" if key == "google_sb" else "tidak diperiksa"
+            color = t.MUTED
+        else:
+            result = str(item.get("result", ""))
+            color = str(item.get("color", t.MUTED))
+        rows.append({"step": str(index), "layer": label, "result": result, "color": color})
     return rows
 
 
@@ -116,6 +142,7 @@ class State(rx.State):
     decision_source: str = ""
     reason: str = ""
     trail: list[dict] = []
+    layer_rows: list[dict] = []
 
     @rx.var
     def risk_label(self) -> str:
@@ -163,6 +190,7 @@ class State(rx.State):
         target = self.url.strip()
         self.error = ""
         self.has_result = False
+        self.layer_rows = []
         if not target:
             self.error = "URL tidak boleh kosong. Tempel alamat lengkap, misalnya https://contoh.com/login."
             return
@@ -194,6 +222,7 @@ class State(rx.State):
             self.decision_source = str(body.get("decision_source", ""))
             self.reason = str(body.get("reason", ""))
             self.trail = build_trail_rows(body.get("trail") or [])
+            self.layer_rows = build_layer_rows(self.trail)
             if probability_raw is None:
                 self.probability_pct = "—"
                 self.bar_width = "0%"

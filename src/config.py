@@ -60,6 +60,10 @@ FEED_DIR = Path(os.getenv("PHISHGUARD_FEED_DIR", str(ROOT / "data" / "feeds")))
 if not FEED_DIR.is_absolute():
     FEED_DIR = ROOT / FEED_DIR
 FEED_MAX_AGE_HOURS = int(os.getenv("PHISHGUARD_FEED_MAX_AGE_HOURS", "24"))
+
+# Layer 0 Google Safe Browsing (opsional). Default mati agar offline-first tetap.
+GOOGLE_API_KEY = os.getenv("PHISHGUARD_GOOGLE_API_KEY", "").strip()
+USE_GOOGLE = os.getenv("PHISHGUARD_USE_GOOGLE", "false").strip().lower() in {"1", "true", "yes", "on"}
 METRICS_PATH = DOCS_DIR / "metrics.json"
 STATS_PATH = DOCS_DIR / "stats.json"
 

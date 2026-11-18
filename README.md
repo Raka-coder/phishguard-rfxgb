@@ -3,7 +3,7 @@
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.163-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Reflex](https://img.shields.io/badge/Reflex-0.11-6C5CE7?style=flat-square)](https://reflex.dev)
-[![Tests](https://img.shields.io/badge/tests-145%20passed-brightgreen?style=flat-square)](#pengujian)
+[![Tests](https://img.shields.io/badge/tests-152%20passed-brightgreen?style=flat-square)](#pengujian)
 [![Dataset](https://img.shields.io/badge/Dataset-CC%20BY--NC--SA%204.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI** (pada API: `SUSPICIOUS`) menggunakan model machine learning berbasis dataset [PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset). Setiap keputusan dijelaskan secara transparan melalui jejak evaluasi (`trail`) yang merinci lapisan mana yang memicu vonis dan alasan logisnya. Antarmuka aplikasi dibangun dengan **Reflex** (100% Python) dan inferensi berkecepatan tinggi dilayani oleh **FastAPI**.
@@ -21,8 +21,10 @@ Setiap permintaan inferensi URL dievaluasi secara bertahap dan berhenti seketika
 
 ```mermaid
 flowchart TD
-    Start([Input URL]) --> L1{1. Denylist Feed Offline}
-    L1 -- Cocok --> Phishing([PHISHING])
+    Start([Input URL]) --> L0{"0. Google Safe Browsing<br/>(opt-in)"}
+    L0 -- "Cocok / Ancaman" --> Phishing([PHISHING])
+    L0 -- "Aman, gagal, atau nonaktif" --> L1{1. Denylist Feed Offline}
+    L1 -- Cocok --> Phishing
     L1 -- "Lewat (Kosong / Basi)" --> L2{2. Allowlist Tepercaya}
     L2 -- "Cocok (~60 domain)" --> Legitimate([LEGITIMATE])
     L2 -- Tidak Cocok --> L3{3. Model ML: Model B + Model C}
@@ -34,6 +36,7 @@ flowchart TD
 ```
 
 ### Rincian Peran Lapisan & Model
+0. **Lapisan 0 — Google Safe Browsing (Opsional, Fail-safe):** Validasi eksternal tertinggi. Aktif hanya bila `PHISHGUARD_USE_GOOGLE=true` dan `PHISHGUARD_GOOGLE_API_KEY` diisi. Bila Google menandai `MALWARE`/`SOCIAL_ENGINEERING`, sistem langsung `PHISHING` (`decision_source="google_safe_browsing"`). Timeout 5 detik; error/timeout apa pun dianggap "tidak ada match" dan inference lanjut ke lapisan offline. Default **mati** (`false`).
 1. **Lapisan 1 — Denylist Feed Lokal (Offline):** Pencocokan cepat dengan snapshot feed phishing publik (OpenPhish). Jika file snapshot tidak ada atau telah berusia lebih dari 24 jam (`PHISHGUARD_FEED_MAX_AGE_HOURS`), lapisan dilewati dengan aman dan dicatat di `trail`.
 2. **Lapisan 2 — Allowlist Domain Tepercaya (Offline):** Pencocokan string domain terhadap ~60 domain korporat/populer (`src/trusted_domains.json`) untuk mencegah false positive pada layanan esensial.
 3. **Lapisan 3 — Ensemble Model ML:**
@@ -43,7 +46,22 @@ flowchart TD
 4. **Lapisan 4 — Deteksi Pemendek Tautan (Shortener):** URL yang lolos sebagai legitimate tetapi menggunakan domain pemendek URL (seperti `bit.ly`, `t.co`) dialihkan statusnya menjadi `TIDAK TERVERIFIKASI` karena tujuan akhir tautan disembunyikan.
 
 > [!IMPORTANT]
-> **Klausul Inferensi Offline & Etika:** Proses ekstraksi fitur dan penentuan vonis murni manipulasi string. Sistem tidak pernah membuka soket, melakukan resolusi DNS, HTTP fetch, atau probing aktif ke URL target.
+> **Klausul Inferensi Offline & Etika:** Secara default, ekstraksi fitur dan penentuan vonis murni manipulasi string: sistem tidak membuka soket, melakukan resolusi DNS, HTTP fetch, atau probing aktif ke URL target. Pengecualian opt-in adalah Lapisan 0: bila diaktifkan, URL yang diperiksa dikirim ke Google Safe Browsing (bukan dibuka/diprobe). Tanpa konfigurasi, sistem tetap 100% offline. Data feed denylist tidak didistribusikan ulang.
+
+### Mengaktifkan Layer 0 (opsional)
+```env
+# di .env (jangan commit nilai asli)
+PHISHGUARD_USE_GOOGLE=true
+PHISHGUARD_GOOGLE_API_KEY=isi-kunci-anda
+```
+
+Verifikasi cepat setelah API berjalan:
+
+```powershell
+curl.exe -X POST http://localhost:8001/check -H "Content-Type: application/json" -d '{"url":"http://testsafebrowsing.appspot.com/s/phishing.html"}'
+```
+
+Respons memuat `"decision_source": "google_safe_browsing"`. Dengan `PHISHGUARD_USE_GOOGLE=false`, URL yang sama diproses lapisan offline dan tetap mengembalikan JSON tanpa error.
 
 ---
 
@@ -94,7 +112,7 @@ uv run python scripts/inspect_data.py   # Wajib memverifikasi: 235795 baris; lab
 uv run python scripts/sync_feeds.py
 
 # Verifikasi test suite dan kompilasi antarmuka
-uv run pytest -q                        # 145 tests
+uv run pytest -q                        # 152 tests
 uv run reflex compile
 
 # Terminal 1 — Jalankan FastAPI Service
@@ -228,7 +246,7 @@ Mengecek status kesiapan service dan ketersediaan artefak model di memori.
 Semua perintah pengujian dijalankan dari root repositori menggunakan environment `uv`:
 
 ```powershell
-# Menjalankan seluruh test suite otomatis (145 tests)
+# Menjalankan seluruh test suite otomatis (152 tests)
 uv run pytest -q
 
 # Menjalankan satu test spesifik
@@ -258,8 +276,8 @@ phishguard-rfxgb/
 ├── docs/                   # Spesifikasi teknis, PRD v1/v2, skema, dan catatan analisis
 ├── models/experimental/    # Model eksperimental C_host.pkl & tld_probs_host.json
 ├── scripts/                # Script otomasi data, evaluasi, training, dan feed sync
-├── src/                    # Modul inti deteksi (predict, config, feature_utils, denylist, reputation)
-└── tests/                  # Unit tests & integrasi (145 tests) + fixtures sintetis
+├── src/                    # Modul inti (predict, config, feature_utils, denylist, reputation, google_sb)
+└── tests/                  # Unit tests & integrasi (152 tests) + fixtures sintetis
 ```
 
 ---
@@ -269,7 +287,7 @@ phishguard-rfxgb/
 - **Inversi Label Dataset:** `1 = legitimate`, `0 = phishing`. Di seluruh metrik dan kode, $P(\text{phishing}) = \text{predict\_proba}[:, 0]$ dengan `pos_label=0`.
 - **Reproducibility Split:** Pembagian data wajib menggunakan fungsi `src/config.py:make_split(df)` (Stratified, seed 42) untuk memastikan holdout test set (47.159 baris) steril dari data latih.
 - **Pencegahan Kebocoran (Data Leakage):** Fitur konten HTML/DOM (`LineOfCode`, `Bank`, `HasTitle`, dll.) hanya diizinkan untuk Model A. Model B dilatih secara murni dari hasil recomputasi leksikal URL `feature_utils.to_frame()`.
-- **Zero Network on Prediction:** Fungsi `predict_url()` dilarang melakukan request jaringan atau resolusi DNS eksternal saat inferensi.
+- **Offline by Default:** `predict_url()` tidak melakukan request jaringan atau resolusi DNS eksternal, kecuali Lapisan 0 Google Safe Browsing yang diaktifkan eksplisit (`PHISHGUARD_USE_GOOGLE=true` + API key). Lapisan 0 fail-safe: timeout/error diperlakukan sebagai "tidak ada match".
 - **Port Layanan:** FastAPI di port `:8001`, Reflex backend di `:8000`, Reflex frontend di `:3000`.
 
 ---

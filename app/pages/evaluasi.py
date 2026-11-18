@@ -505,6 +505,18 @@ def build_verdict_chart(t25: dict) -> list[dict]:
     return rows
 
 
+def build_source_chart(realworld: dict) -> list[dict]:
+    """Komposisi sumber keputusan pada uji dunia nyata (docs/realworld.json)."""
+    block = ((((realworld or {}).get("variants") or {}).get("full") or {}).get("with_reputation") or {})
+    by_source = block.get("by_decision_source") or {}
+    labels = [("allowlist", "Allowlist"), ("model", "Model B + C"), ("uncertainty", "Tidak terverifikasi")]
+    rows = []
+    for key, label in labels:
+        count = int((by_source.get(key) or {}).get("n") or 0)
+        rows.append({"source": label, "n": count})
+    return rows
+
+
 def build_age_chart(denylist: dict) -> dict:
     """Kurva umur entri; pasangan snapshot <1 jam diabaikan karena duplikat."""
     rows: list[dict] = []
@@ -590,6 +602,7 @@ class EvalState(rx.State):
     realworld_rows: list[dict] = []
     mcc_chart: list[dict] = []
     verdict_chart: list[dict] = []
+    source_chart: list[dict] = []
     age_chart: list[dict] = []
     age_skipped: int = 0
     denylist_sentence: str = ""
@@ -607,6 +620,7 @@ class EvalState(rx.State):
         self.realworld_rows = []
         self.mcc_chart = []
         self.verdict_chart = []
+        self.source_chart = []
         self.age_chart = []
         self.age_skipped = 0
         self.denylist_sentence = ""
@@ -671,6 +685,7 @@ class EvalState(rx.State):
         self.realworld_rows = panel["rows"]
         self.mcc_chart = build_mcc_chart(t25)
         self.verdict_chart = build_verdict_chart(t25)
+        self.source_chart = build_source_chart(realworld)
         age = build_age_chart(denylist)
         self.age_chart = age["rows"]
         self.age_skipped = age["skipped"]
@@ -1155,6 +1170,29 @@ def realworld_panel() -> rx.Component:
     )
 
 
+def source_panel() -> rx.Component:
+    return card(
+        card_title("route", "Sumber keputusan di dunia nyata"),
+        muted(
+            "Berapa URL pada uji dunia nyata yang diputuskan tiap lapisan, dibaca dari "
+            "docs/realworld.json. Google Safe Browsing bersifat runtime-only sehingga tidak "
+            "masuk evaluasi offline ini.",
+            size="1",
+            style={"margin_top": "6px", "margin_bottom": "10px"},
+        ),
+        rx.recharts.bar_chart(
+            rx.recharts.cartesian_grid(**GRID),
+            rx.recharts.bar(data_key="n", fill=t.PURPLE),
+            rx.recharts.x_axis(data_key="source", stroke=t.MUTED, height=50),
+            rx.recharts.y_axis(stroke=t.MUTED, width=52, allow_decimals=False),
+            rx.recharts.graphing_tooltip(content_style=TOOLTIP_STYLE),
+            data=EvalState.source_chart,
+            width="100%",
+            height=260,
+        ),
+    )
+
+
 def mcc_shift_panel() -> rx.Component:
     return card(
         card_title("chart-bar", "MCC turun dari PhiUSIIL ke dunia nyata"),
@@ -1352,6 +1390,7 @@ def loaded_view() -> rx.Component:
             rx.vstack(
                 benchmark_panel(),
                 realworld_panel(),
+                source_panel(),
                 mcc_shift_panel(),
                 roc_shift_panel(),
                 candidate_panel(),

@@ -5,6 +5,7 @@ from app.pages.evaluasi import (
     build_denylist_sentence,
     build_mcc_chart,
     build_realworld_panel_data,
+    build_source_chart,
     build_verdict_chart,
     format_delta,
     format_hours,
@@ -52,6 +53,27 @@ def test_realworld_panel_title_and_rows_follow_t25_numbers():
     assert row["recall_terjaring"] == "100.00%"
     assert row["mcc"] == "30.83%"
     assert row["suspicious"] == "9.49%"
+
+
+def test_source_chart_reads_decision_source_counts():
+    realworld = {
+        "variants": {
+            "full": {
+                "with_reputation": {
+                    "by_decision_source": {
+                        "allowlist": {"n": 25},
+                        "model": {"n": 330},
+                        "uncertainty": {"n": 0},
+                    }
+                }
+            }
+        }
+    }
+    assert build_source_chart(realworld) == [
+        {"source": "Allowlist", "n": 25},
+        {"source": "Model B + C", "n": 330},
+        {"source": "Tidak terverifikasi", "n": 0},
+    ]
 
 
 def test_mcc_chart_compares_phiusiil_with_dev_and_final():
