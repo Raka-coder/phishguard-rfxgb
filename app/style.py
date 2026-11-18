@@ -27,7 +27,7 @@ MUTED = "#FFFFFF"  # semua teks biasa (Public Sans) putih
 WHITE = "#FFFFFF"
 BLACK = "#000000"
 
-# --- Aksen ------------------------------------------------------------------
+# --- Aksen & Status Semantik ------------------------------------------------
 P5_RED = "#E60012"
 PURPLE = P5_RED            # nama lama: aksen utama
 PURPLE_LIGHT = "#FF4455"   # teks/ikon aksen di atas hitam
@@ -35,11 +35,24 @@ PURPLE_DEEP = "#7A0009"
 RED = "#FF4455"            # phishing (teks/grafik di atas hitam)
 RED_SOLID = "#E60012"      # latar badge dengan teks putih
 ORANGE = "#FFFFFF"         # seri kedua di grafik (putih)
-YELLOW = "#FFD400"
+YELLOW = "#F59E0B"         # amber/kuning peringatan tegas untuk suspicious
 GREEN = "#4ADE80"
 GREEN_SOLID = "#15803D"
 NEUTRAL_SOLID = "#3B3B3B"
 LEGIT_PANEL = "#333333"  # latar panel gambar legit: hitam sedikit lebih terang
+
+# Status Palettes (WCAG compliant)
+STATUS_PHISH_BG = "#3E1215"
+STATUS_PHISH_BORDER = "#E60012"
+STATUS_PHISH_TEXT = "#FF8A80"
+
+STATUS_SUSP_BG = "#3D2B05"
+STATUS_SUSP_BORDER = "#F59E0B"
+STATUS_SUSP_TEXT = "#FDE68A"
+
+STATUS_LEGIT_BG = "#0D331E"
+STATUS_LEGIT_BORDER = "#15803D"
+STATUS_LEGIT_TEXT = "#86EFAC"
 
 GRADIENT = P5_RED  # tombol/penanda utama: merah solid
 PAGE_GLOW = (

@@ -167,6 +167,14 @@ class State(rx.State):
         return self.label_name == "PHISHING"
 
     @rx.var
+    def is_suspicious(self) -> bool:
+        return self.label_name == "SUSPICIOUS"
+
+    @rx.var
+    def is_legitimate(self) -> bool:
+        return self.label_name == "LEGITIMATE"
+
+    @rx.var
     def verdict_color(self) -> str:
         if self.label_name == "PHISHING":
             return t.RED
@@ -229,11 +237,20 @@ class State(rx.State):
                 self.prob_data = []
             else:
                 probability = float(probability_raw)
-                self.probability_pct = f"{probability * 100:.2f}%"
+                prob_val = round(probability * 100, 2)
+                self.probability_pct = f"{prob_val:.2f}%"
                 self.bar_width = f"{min(max(probability, 0.0), 1.0) * 100:.2f}%"
+                # Warna dinamis sesuai uncertainty band 3 zona:
+                # < 40%: Hijau (Aman), 40-65%: Kuning/Amber (Waspada/Ragu), >= 65%: Merah (Bahaya)
+                if probability >= 0.65:
+                    score_fill = t.RED
+                elif probability >= 0.40:
+                    score_fill = t.YELLOW
+                else:
+                    score_fill = t.GREEN
                 self.prob_data = [
-                    {"name": "Phishing", "value": round(probability * 100, 2), "fill": t.RED},
-                    {"name": "Legit", "value": round(100 - probability * 100, 2), "fill": t.GREEN},
+                    {"name": "Skor Phishing", "value": prob_val, "fill": score_fill},
+                    {"name": "Sisa", "value": round(100 - prob_val, 2), "fill": t.CARD_2},
                 ]
             self.inference_ms = f"{float(body.get('inference_ms') or 0.0):.2f}"
             self.top_features = build_feature_rows(body.get("top_features") or [])

@@ -123,8 +123,27 @@ def verdict_card() -> rx.Component:
         rx.hstack(
             rx.box(style={"width": "4px", "height": "16px", "background": State.verdict_color, "border_radius": "0"}),
             muted("Verdict"),
+            rx.spacer(),
+            rx.cond(
+                State.is_suspicious,
+                rx.tooltip(
+                    rx.badge(
+                        "⚠️ PERLU VERIFIKASI MANUAL",
+                        style={
+                            "background": t.STATUS_SUSP_BG,
+                            "color": t.STATUS_SUSP_TEXT,
+                            "border": f"1px solid {t.STATUS_SUSP_BORDER}",
+                            "border_radius": "0",
+                            "font_weight": "700",
+                            "cursor": "help",
+                        },
+                    ),
+                    content="Model mendeteksi pola mencurigakan, namun URL tidak ditemukan dalam database ancaman global. Harap verifikasi konten situs secara manual.",
+                ),
+            ),
             align="center",
             spacing="2",
+            width="100%",
         ),
         rx.hstack(
             rx.box(
@@ -151,9 +170,22 @@ def verdict_card() -> rx.Component:
                 },
             ),
             rx.vstack(
-                rx.text(
-                    State.display_label,
-                    style={"font_family": t.DISPLAY_FONT, "text_shadow": "none", "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
+                rx.hstack(
+                    rx.cond(
+                        State.is_phishing,
+                        rx.icon("shield-alert", size=24, style={"color": t.RED}),
+                        rx.cond(
+                            State.is_suspicious,
+                            rx.icon("triangle-alert", size=24, style={"color": t.YELLOW}),
+                            rx.icon("shield-check", size=24, style={"color": t.GREEN}),
+                        ),
+                    ),
+                    rx.text(
+                        State.display_label,
+                        style={"font_family": t.DISPLAY_FONT, "text_shadow": "none", "text_transform": "uppercase", "font_size": "1.6rem", "line_height": "1.1", "color": State.verdict_color, "overflow_wrap": "anywhere"},
+                    ),
+                    align="center",
+                    spacing="2",
                 ),
                 muted(State.verdict_note),
                 rx.hstack(
@@ -211,7 +243,15 @@ def probability_card() -> rx.Component:
                         State.probability_pct,
                         style={"font_size": "1.6rem", "font_weight": "700", "line_height": "1.1"},
                     ),
-                    muted("phishing", size="1"),
+                    rx.cond(
+                        State.is_phishing,
+                        muted("BAHAYA", size="1", style={"color": t.RED, "font_weight": "700"}),
+                        rx.cond(
+                            State.is_suspicious,
+                            muted("WASPADA", size="1", style={"color": t.YELLOW, "font_weight": "700"}),
+                            muted("AMAN", size="1", style={"color": t.GREEN, "font_weight": "700"}),
+                        ),
+                    ),
                     direction="column",
                     align="center",
                     justify="center",
@@ -226,20 +266,39 @@ def probability_card() -> rx.Component:
         ),
         rx.hstack(
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.RED}),
-                muted("Phishing", size="1"),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.GREEN}),
+                muted("Aman (<40%)", size="1"),
                 align="center",
                 spacing="1",
             ),
             rx.hstack(
-                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.GREEN}),
-                muted("Legit", size="1"),
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.YELLOW}),
+                muted("Waspada (40-65%)", size="1"),
                 align="center",
                 spacing="1",
             ),
-            rx.spacer(),
-            muted("Skor Model B; ambang label 50%", size="1"),
+            rx.hstack(
+                rx.box(style={"width": "8px", "height": "8px", "border_radius": "0", "background": t.RED}),
+                muted("Bahaya (>65%)", size="1"),
+                align="center",
+                spacing="1",
+            ),
+            wrap="wrap",
+            spacing="3",
             width="100%",
+            margin_top="6px",
+        ),
+        rx.cond(
+            State.is_suspicious,
+            rx.box(
+                muted("⚠️ Skor berada di zona abu-abu (40% - 65%): Model tidak memiliki keyakinan penuh sehingga digolongkan SUSPICIOUS.", size="1", style={"color": t.STATUS_SUSP_TEXT}),
+                style={
+                    "background": t.STATUS_SUSP_BG,
+                    "border": f"1px solid {t.STATUS_SUSP_BORDER}",
+                    "padding": "6px 8px",
+                    "margin_top": "8px",
+                },
+            ),
         ),
     )
 
@@ -353,7 +412,7 @@ def render_trail(item: rx.Var[dict]) -> rx.Component:
         ),
         style={
             "background": t.CARD_2,
-            "border": f"1px solid {t.LINE}",
+            "border": f"1px solid {item['color']}",
             "border_radius": "0",
             "padding": "10px 12px",
             "width": "100%",

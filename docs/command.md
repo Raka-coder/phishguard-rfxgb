@@ -1,47 +1,54 @@
-Jangan komentari baris .gitignore begitu saja. Hanya sebagian kecil artefak yang perlu dikeluarkan dari daftar abaikan, dan ada beberapa file yang sebaiknya jangan dipublikasikan dulu. Catatan: file .pkl tidak ada di ZIP ini, jadi ukurannya belum saya lihat dan saya hanya mengandalkan README dan konfigurasi.
+Masalah ini terjadi karena **Gauge Chart (Speedometer) Anda saat ini kemungkinan besar masih menggunakan logika biner atau threshold yang terlalu sensitif**.
 
-1. Aman dan perlu di-commit
-File/folder	Catatan
-src/*.py, src/trusted_domains.json, api/, app/ (termasuk limitations.json), scripts/, tests/	kode inti
-pyproject.toml, uv.lock, .python-version, rxconfig.py, .env.example, .gitignore, reflex.lock/	agar proyek bisa dibangun ulang
-README.md, AGENTS.md	setelah diperbarui (lihat bagian 4)
-docs/*.md hasil evaluasi, docs/*.json (metrics, realworld, model_c, t25, denylist, stats)	sudah berupa agregat. Pemindaian saya tidak menemukan URL feed di dalamnya.
-src/tld_probs.json	kecil dan hanya berisi probabilitas per TLD, jadi hapus baris ignore-nya
-2. Jangan dipublikasikan (biarkan di-ignore)
-data/ (seluruhnya): dataset berlisensi CC BY-NC-SA, snapshot OpenPhish yang dilarang didistribusikan ulang, dan data legit hasil crawl Anda.
-.env, .venv/, .web/, .states, *.parquet, *.zip, .megamemory/, skills/.
-src/model_full.pkl (Model A). Model A tidak dipakai aplikasi (hanya evaluate.py), dan README menyebutnya Random Forest, yang kemungkinan besar berukuran besar. Cek ukurannya.
+Jika Model B memberikan probabilitas 0.45–0.65 (zona *Suspicious*), tetapi Gauge langsung menunjuk ke area merah (*Phishing*), itu berarti:
+1.  **Mapping Warna Salah:** Gauge menganggap segala nilai di atas 0.40 sebagai "Bahaya", padahal seharusnya 0.40–0.65 adalah "Waspada".
+2.  **Visualisasi Tidak Jujur:** Gauge tidak merepresentasikan *uncertainty band* yang sudah Anda coding di `src/predict.py`. Ini membuat sistem terlihat "panik" padahal sebenarnya sedang "ragu".
 
-Pemindaian saya tidak menemukan kunci atau rahasia nyata. Yang muncul hanya kata seperti “password” di nama fitur dan daftar filter. Tidak ada path lokal atau nama pengguna.
+Berikut adalah instruksi teknis untuk memperbaiki visualisasi Gauge agar selaras dengan arsitektur berlapis dan rubrik **Analisis False Positive**:
 
-3. Soal file .pkl: ubah dengan pengecualian, jangan dibuka semua
+### 🛠️ Perbaikan Logika Gauge Chart (`app/pages/index.py` atau komponen gauge)
 
-Aplikasi butuh: src/model.pkl, models/experimental/C_host.pkl, dan models/experimental/tld_probs_host.json. Kalau tidak ada, Model B melempar error, sedangkan Model C diam-diam hilang (fallback). Ganti blok artefak di .gitignore dengan:
+Jangan gunakan satu warna solid untuk rentang luas. Ubah konfigurasi Gauge menjadi **3 Zona Eksplisit**:
 
-# artefak model: hanya yang dibutuhkan aplikasi yang di-commit
-src/*.pkl
-!src/model.pkl
-models/experimental/*
-!models/experimental/C_host.pkl
-!models/experimental/tld_probs_host.json
+```python
+# Contoh implementasi di Reflex (sesuaikan dengan library chart yang dipakai, misal recharts/plotly)
+rx.recharts.radial_bar_chart(
+    # ... data props ...
+    # DEFINISI ZONA GAUGE YANG BENAR:
+    sectors=[
+        {"min": 0, "max": 40, "fill": "#10B981", "name": "Aman"},      # Hijau Emerald
+        {"min": 40, "max": 65, "fill": "#F59E0B", "name": "Waspada"},  # Amber/Kuning (SUSPICIOUS)
+        {"min": 65, "max": 100, "fill": "#EF4444", "name": "Bahaya"}   # Merah (PHISHING)
+    ],
+    # Label dinamis berdasarkan verdict, bukan cuma angka
+    label=rx.cond(
+        risk_level == "tinggi", "⛔ PHISHING",
+        rx.cond(risk_level == "sedang", "⚠️ WASPADA", "✅ AMAN")
+    )
+)
+```
 
-(dan hapus baris src/tld_probs.json). Bentuk models/experimental/* diperlukan, karena aturan folder models/experimental/ tidak bisa dikecualikan per file.
+### 🎨 Penyesuaian Visual Agar Tidak "Selalu Merah"
 
-Cek ukuran dulu (PowerShell): Get-ChildItem src\*.pkl, models\experimental\* | Select Name, Length. GitHub memperingatkan di 50 MB dan menolak di 100 MB. Kalau model.pkl dan C_host.pkl masing-masing di bawah ±25 MB (dugaan saya XGBoost hanya beberapa MB, belum diverifikasi), commit saja. Kalau lebih besar, pakai GitHub Release dan skrip unduh dengan checksum.
+1.  **Perlebar Zona Kuning (Waspada):** Pastikan zona 40-65% secara visual menempati porsi yang cukup besar di gauge. Jika zonanya terlalu sempit, jarum akan mudah "tergelincir" ke merah hanya karena sedikit fluktuasi probabilitas.
+2.  **Gunakan Gradient atau Arsiran:** Untuk zona *Suspicious*, jangan pakai kuning solid. Gunakan pola arsiran diagonal atau gradient kuning-oranye. Ini memberi kesan *"area transisi"* atau *"ketidakpastian"*, berbeda dengan zona merah solid yang bermakna *"kepastian bahaya"*.
+3.  **Tambahkan Marker Ambang Batas:** Beri garis penanda tipis di angka 40 dan 65 pada gauge. Ini membantu user/dosen melihat secara persis di mana posisi URL tersebut relatif terhadap batas keputusan model.
 
-Dua hal tambahan:
+### 📊 Integrasi dengan Trail Keputusan (Krusial untuk Rubrik)
 
-Pastikan yang di-commit adalah artefak yang menghasilkan angka di laporan. Saya belum memverifikasi bahwa C_host.pkl di jalur itu hasil train_t25.py (dengan normalisasi www.) dan bahwa predict.py menerapkan normalisasi yang sama. Tanyakan ke agent.
-Untuk mata kuliah keamanan: joblib memakai pickle, yang bisa menjalankan kode saat dimuat. Tambahkan di README catatan “hanya muat artefak dari repo ini” dan simpan hash SHA256 kedua file di README. Itu nilai tambah untuk laporan.
-4. Yang harus dibereskan sebelum push (T27)
-README dan AGENTS.md masih versi lama. AGENTS.md masih menyebut alur “allowlist → model” dengan ±60 domain, tanpa denylist atau Model C, dan klausul “no network at inference” belum menyebut sync_feeds.py. README belum menjelaskan sinkronisasi feed, Model C, dan hasil terbaru, dan tabel “Hasil” hanya Model A/B. Penguji akan salah paham.
-tests/fixtures/urls.txt masih berlabel PHISHTANK-PLACEHOLDER dan “Tranco”, padahal sumber kita OpenPhish dan tanpa Tranco. Ubah menjadi “contoh sintetis”.
-Aset Persona 5 (karya berhak cipta). assets/img/legit.png dan phishing.png (dipakai di index.py:130) dan font Persona5MenuFontPrototype berisiko untuk repo publik. Ganti dengan ilustrasi atau ikon Anda sendiri sebelum repo dibuka, atau biarkan repo private sampai diganti. Lisensi font perlu dicek sendiri.
-Tangkapan layar di docs/screenshots/ usang. Yang saya lihat adalah UI lama (bukan tema sekarang) dalam keadaan “Memeriksa...”. Ukuran index-legit.png dan index-features.png persis sama (69.121 byte), kemungkinan duplikat. Buat ulang dari UI terbaru.
-docs/instruction.md berisi perintah lama (“PhishTank ditunda, jangan implementasikan”, “keputusan final”) yang kini bertentangan dengan kondisi proyek. Pindahkan ke docs/arsip/ atau jangan dipublikasikan. docs/phishguard-*.md kemungkinan juga usang, jadi tambahkan catatan “dokumen awal” di atasnya.
-docs/hasil_evaluasi.md memuat URL contoh FP/FN dari PhiUSIIL (mis. xvsc.my.id, versoflor.de). Itu boleh dengan atribusi dataset, tetapi tambahkan catatan “label dari dataset, belum diverifikasi independen”. Jangan menyebut domain nyata sebagai “phishing” tanpa catatan itu.
-5. Urutan yang saya sarankan
-Ubah .gitignore seperti di atas, lalu cek dengan git add -n . (simulasi) dan git ls-files --others --exclude-standard. Pastikan data/ dan .env tidak muncul.
-Kerjakan butir 1–6 (cepat lewat T27).
-Clone ke folder baru, ikuti README apa adanya, jalankan uv run pytest -q, API, dan UI. Kalau ada langkah yang gagal, perbaiki dulu.
-Baru push
+Gauge saja tidak cukup menjelaskan *mengapa* Traveloka atau Cloudflare masuk zona kuning. Tambahkan **Tooltip Interaktif** atau **Badge di Bawah Gauge**:
+
+> *"Probabilitas Phishing: 52% (Zona Abu-abu)*
+> *Penyebab: URLLength tinggi & banyak parameter tracking.*
+> *Status: Tidak ditemukan di database ancaman global (Google/OpenPhish)."*
+
+Ini mengubah tampilan dari sekadar "angka merah/kuning" menjadi **narasi analitis** yang langsung menjawab rubrik *"analisis false positive dan false negative"*.
+
+### ✅ Checklist Verifikasi Setelah Update
+
+- [ ] Input URL Traveloka/Cloudflare → Gauge menunjuk ke **zona kuning/arsiran**, bukan merah solid.
+- [ ] Label gauge berubah menjadi **"WASPADA"** atau **"PERLU VERIFIKASI"**, bukan "PHISHING".
+- [ ] Tooltip/badge menampilkan **penyebab leksikal** (misal: "Parameter UTM panjang").
+- [ ] Input URL phishing nyata (dari OpenPhish) → Gauge tetap menunjuk ke **zona merah solid**.
+- [ ] `uv run reflex compile` berhasil tanpa error styling chart.
+
