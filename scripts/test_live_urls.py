@@ -64,7 +64,7 @@ def print_console(results: list[tuple[str, object]]) -> None:
             top = result["top_features"][0]["feature"] if result["top_features"] else "-"
             print(f"{url[:60]:<60} | {result['label_name']:<11} | {_probability_text(result):<8} | {result['inference_ms']:>7} | {top}")
     print("-" * 100)
-    print(f"Ringkasan: {n_phish} PHISHING, {n_legit} LEGITIMATE, {n_suspicious} TIDAK TERVERIFIKASI, {n_err} ERROR (total {len(results)})")
+    print(f"Ringkasan: {n_phish} PHISHING, {n_legit} LEGITIMATE, {n_suspicious} SUSPICIOUS, {n_err} ERROR (total {len(results)})")
 
 
 def print_markdown(results: list[tuple[str, object]]) -> None:

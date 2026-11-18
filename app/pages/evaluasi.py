@@ -7,7 +7,7 @@ from pathlib import Path
 import reflex as rx
 
 from app import style as t
-from app.components import card, card_title, muted, page_shell
+from app.components import card, card_title, muted, p5_callout, page_shell
 
 ROOT = Path(__file__).resolve().parents[2]
 METRICS_PATH = ROOT / "docs" / "metrics.json"
@@ -759,6 +759,7 @@ def _conf_cell(value, caption: str, good: bool) -> rx.Component:
         muted(caption, size="1", style={"color": fg}),
         style={
             "background": t.WHITE if good else t.P5_RED,
+            "text_shadow": "none",
             "border": f"3px solid {t.WHITE if good else t.P5_RED}",
             "border_radius": "0",
             "padding": "14px",
@@ -1307,12 +1308,10 @@ def limitations_panel() -> rx.Component:
 
 def loaded_view() -> rx.Component:
     return rx.vstack(
-        rx.callout(
+        p5_callout(
             "Halaman ini membedakan test set PhiUSIIL dan uji dunia nyata, sebelum dan "
             "sesudah lapisan reputasi. Semua angka dibaca dari artefak evaluasi, bukan diketik manual.",
             icon="info",
-            color_scheme="blue",
-            style={"width": "100%"},
         ),
         rx.grid(
             stat_card("Model B + Model C + aturan", "Model di aplikasi"),
@@ -1379,12 +1378,11 @@ def loaded_view() -> rx.Component:
 
 
 def missing_view() -> rx.Component:
-    return rx.callout(
+    return p5_callout(
         "Artefak belum ada. Jalankan `uv run python src/train.py` dan "
         "`uv run python src/evaluate.py` dulu.",
         icon="triangle-alert",
-        color_scheme="red",
-        style={"width": "100%"},
+        warn=True,
     )
 
 
@@ -1398,14 +1396,13 @@ def evaluasi() -> rx.Component:
                     style={
                         "font_family": t.DISPLAY_FONT,
                         "text_transform": "uppercase",
-                        "font_weight": "400",
-                        "font_size": "clamp(2rem, 5vw, 3.2rem)",
+                        "font_size": "clamp(2.6rem, 8vw, 5.6rem)",
                         "line_height": "0.95",
                         "color": t.WHITE,
                         "text_shadow": f"6px 6px 0 {t.BLACK}",
                         "transform": "rotate(-3deg)",
                         "transform_origin": "left",
-                        "margin": "8px 0 20px",
+                        "margin": "8px 0 28px",
                     },
                 ),
                 muted("Seberapa akurat PhishGuard membedakan URL phishing dari URL legit.", size="3"),

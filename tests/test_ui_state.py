@@ -25,7 +25,7 @@ def test_build_trail_rows_handles_empty_and_unknown_result():
 
 
 def test_display_verdict_label_is_neutral_for_suspicious():
-    assert display_verdict_label("SUSPICIOUS") == "TIDAK TERVERIFIKASI"
+    assert display_verdict_label("SUSPICIOUS") == "SUSPICIOUS"
     assert display_verdict_label("PHISHING") == "PHISHING"
     assert display_verdict_label("LEGITIMATE") == "LEGITIMATE"
     assert display_verdict_label("") == ""

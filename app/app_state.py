@@ -49,7 +49,7 @@ TRAIL_COLORS = {
     "tidak tersedia": t.MUTED,
 }
 RISK_LABELS = {"tinggi": "Risiko tinggi", "sedang": "Risiko sedang", "rendah": "Risiko rendah"}
-DISPLAY_LABELS = {"SUSPICIOUS": "TIDAK TERVERIFIKASI"}
+DISPLAY_LABELS = {"SUSPICIOUS": "SUSPICIOUS"}
 
 
 def display_verdict_label(label_name: str) -> str:
@@ -144,7 +144,7 @@ class State(rx.State):
         if self.label_name == "PHISHING":
             return t.RED
         if self.label_name == "SUSPICIOUS":
-            return t.MUTED
+            return t.YELLOW
         return t.GREEN
 
     @rx.event

@@ -64,7 +64,7 @@ def test_console_summary_counts_suspicious_from_verdict(monkeypatch, capsys):
     monkeypatch.setattr(live, "predict_url", fake_predict)
     live.print_console(live.run(["https://x.com"]))
     out = capsys.readouterr().out
-    assert "1 TIDAK TERVERIFIKASI" in out
+    assert "1 SUSPICIOUS" in out
     assert "0 PHISHING" in out
 
 
