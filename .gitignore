@@ -4,7 +4,8 @@
 .web
 assets/external/
 # data - JANGAN commit (ukuran + lisensi CC BY-NC-SA)
-data/
+# (anchored ke root: hanya folder data/ di root, bukan results/data/)
+/data/
 # snapshot feed denylist (lisensi OpenPhish - jangan distribusikan ulang)
 data/feeds/
 *.zip

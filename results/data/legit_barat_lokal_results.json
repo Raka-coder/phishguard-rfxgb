@@ -1,0 +1,1282 @@
+{
+  "generated_at": "2026-11-19T13:03:18+00:00",
+  "script": "scripts/eval_legit_set.py",
+  "input": "data/realworld/legit_barat_lokal.txt",
+  "config": {
+    "use_google": false,
+    "feed_max_age_hours": 168
+  },
+  "definitions": {
+    "verdict": "PHISHING / SUSPICIOUS (TIDAK TERVERIFIKASI) / LEGITIMATE",
+    "band_edges": {
+      "rendah": "< 0.40",
+      "sedang": "0.40 <= P < 0.65",
+      "tinggi": ">= 0.65"
+    },
+    "probability_null": "allowlist atau short-circuit lain; model tidak memberi skor"
+  },
+  "feed": {
+    "status": "ok",
+    "path": "data\\feeds\\openphish-20261117-083111.txt",
+    "detail": "Feed dimuat dari openphish-20261117-083111.txt (52.5 jam lalu)."
+  },
+  "summary": {
+    "n_input": 40,
+    "n_evaluated": 40,
+    "n_error": 0,
+    "by_verdict": {
+      "LEGITIMATE": 17,
+      "SUSPICIOUS": 23
+    },
+    "by_risk_level": {
+      "rendah": 17,
+      "tinggi": 6,
+      "sedang": 17
+    },
+    "by_decision_source": {
+      "allowlist": 15,
+      "model": 25
+    },
+    "band_counts": {
+      "model_b": {
+        "tinggi": 22,
+        "sedang": 0,
+        "rendah": 3,
+        "tidak_dinilai": 15
+      },
+      "model_c": {
+        "tinggi": 6,
+        "sedang": 5,
+        "rendah": 14,
+        "tidak_dinilai": 15
+      }
+    },
+    "model_c_available": true,
+    "non_legitimate": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Phishing",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://nextjs.org/docs",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://pages.cloudflare.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 0.9675
+      },
+      {
+        "url": "https://docs.python.org/3/library/urllib.parse.html",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://pypi.org/project/pandas/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://www.npmjs.com/package/react",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://hub.docker.com/_/python",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://kubernetes.io/docs/home/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://arxiv.org/abs/1706.03762",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://scholar.google.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 0.9452
+      },
+      {
+        "url": "https://www.bbc.com/news",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.9993
+      },
+      {
+        "url": "https://www.reuters.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.8368
+      },
+      {
+        "url": "https://code.visualstudio.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "tinggi",
+        "decision_source": "model",
+        "probability": 0.9599
+      },
+      {
+        "url": "https://www.tokopedia.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.9427
+      },
+      {
+        "url": "https://www.gojek.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.6973
+      },
+      {
+        "url": "https://www.traveloka.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.9427
+      },
+      {
+        "url": "https://www.blibli.com/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.7382
+      },
+      {
+        "url": "https://www.bankmandiri.co.id/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.923
+      },
+      {
+        "url": "https://www.ui.ac.id/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.2845
+      },
+      {
+        "url": "https://dppa.ugm.ac.id/bus-listrik-trans-gajah-mada-sebagai-alternatif-transportasi-masal-yang-ramah-lingkungan/",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      },
+      {
+        "url": "https://www.bps.go.id/id",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 0.9854
+      },
+      {
+        "url": "https://www.tokopedia.com/search?q=laptop&utm_source=google&utm_medium=cpc&utm_campaign=promo_11_12&utm_term=laptop+murah&utm_content=ad_1",
+        "verdict": "SUSPICIOUS",
+        "risk_level": "sedang",
+        "decision_source": "model",
+        "probability": 1.0
+      }
+    ]
+  },
+  "results": [
+    {
+      "url": "https://github.com/Raka-coder/phishguard-rfxgb",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain github.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://en.wikipedia.org/wiki/Phishing",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.74567049741745,
+      "reason": "Model B (1.00) dan Model C (0.75) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.7865565419197083,
+      "reason": "Model B (1.00) dan Model C (0.79) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain stackoverflow.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://vercel.com/docs",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain vercel.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://nextjs.org/docs",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.06421256065368652,
+      "reason": "Model B (1.00) dan Model C (0.06) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.cloudflare.com/learning/security/what-is-phishing/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.cloudflare.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://pages.cloudflare.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 0.9675,
+      "probability_c": 0.9610980749130249,
+      "reason": "Model B (0.97) dan Model C (0.96) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://docs.python.org/3/library/urllib.parse.html",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.6486777067184448,
+      "reason": "Model B (1.00) dan Model C (0.65) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "sedang"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://pypi.org/project/pandas/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.03304225206375122,
+      "reason": "Model B (1.00) dan Model C (0.03) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.npmjs.com/package/react",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.2406499981880188,
+      "reason": "Model B (1.00) dan Model C (0.24) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://hub.docker.com/_/python",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.9325299263000488,
+      "reason": "Model B (1.00) dan Model C (0.93) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://kubernetes.io/docs/home/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.5024935007095337,
+      "reason": "Model B (1.00) dan Model C (0.50) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "sedang"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.digitalocean.com/community/tutorials",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.digitalocean.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://arxiv.org/abs/1706.03762",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.05504119396209717,
+      "reason": "Model B (1.00) dan Model C (0.06) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://scholar.google.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 0.9452,
+      "probability_c": 0.9498329758644104,
+      "reason": "Model B (0.95) dan Model C (0.95) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bbc.com/news",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.9993,
+      "probability_c": 0.07450217008590698,
+      "reason": "Model B (1.00) dan Model C (0.07) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.reuters.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.8368,
+      "probability_c": 0.23280566930770874,
+      "reason": "Model B (0.84) dan Model C (0.23) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.debian.org/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "model",
+      "probability": 0.3667,
+      "probability_c": 0.06421256065368652,
+      "reason": "Model B (0.37) dan Model C (0.06) sama-sama rendah.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "rendah"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://code.visualstudio.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "tinggi",
+      "decision_source": "model",
+      "probability": 0.9599,
+      "probability_c": 0.9619115591049194,
+      "reason": "Model B (0.96) dan Model C (0.96) sama-sama tinggi; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "tinggi"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.kompas.com/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.kompas.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.detik.com/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.detik.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.cnnindonesia.com/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.cnnindonesia.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.tempo.co/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.tempo.co berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.tokopedia.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.9427,
+      "probability_c": 0.20380234718322754,
+      "reason": "Model B (0.94) dan Model C (0.20) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.gojek.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.6973,
+      "probability_c": 0.2406499981880188,
+      "reason": "Model B (0.70) dan Model C (0.24) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.traveloka.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.9427,
+      "probability_c": 0.20380234718322754,
+      "reason": "Model B (0.94) dan Model C (0.20) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.blibli.com/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.7382,
+      "probability_c": 0.24281924962997437,
+      "reason": "Model B (0.74) dan Model C (0.24) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bri.co.id/login",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.bri.co.id berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bca.co.id/id/Individu/produk/simpanan",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.bca.co.id berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bankmandiri.co.id/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.923,
+      "probability_c": 0.591528058052063,
+      "reason": "Model B (0.92) dan Model C (0.59) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "sedang"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.btn.co.id/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.btn.co.id berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bsi.co.id/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.bsi.co.id berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.kemdikbud.go.id/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.kemdikbud.go.id berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.ui.ac.id/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.2845,
+      "probability_c": 0.44467341899871826,
+      "reason": "Model B (0.28) dan Model C (0.44) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "rendah"
+        },
+        {
+          "layer": "model_c",
+          "result": "sedang"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://dppa.ugm.ac.id/bus-listrik-trans-gajah-mada-sebagai-alternatif-transportasi-masal-yang-ramah-lingkungan/",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.5360438823699951,
+      "reason": "Model B (1.00) dan Model C (0.54) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "sedang"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.bps.go.id/id",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 0.9854,
+      "probability_c": 0.1515769362449646,
+      "reason": "Model B (0.99) dan Model C (0.15) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.ojk.go.id/",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "model",
+      "probability": 0.2586,
+      "probability_c": 0.1515769362449646,
+      "reason": "Model B (0.26) dan Model C (0.15) sama-sama rendah.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "rendah"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.tokopedia.com/search?q=laptop&utm_source=google&utm_medium=cpc&utm_campaign=promo_11_12&utm_term=laptop+murah&utm_content=ad_1",
+      "verdict": "SUSPICIOUS",
+      "risk_level": "sedang",
+      "decision_source": "model",
+      "probability": 1.0,
+      "probability_c": 0.20380234718322754,
+      "reason": "Model B (1.00) dan Model C (0.20) berbeda; model tidak dapat memastikan.",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "model_b",
+          "result": "tinggi"
+        },
+        {
+          "layer": "model_c",
+          "result": "rendah"
+        },
+        {
+          "layer": "shortener",
+          "result": "tidak cocok"
+        }
+      ]
+    },
+    {
+      "url": "https://www.kompas.com/?utm_source=newsletter&utm_medium=email&utm_campaign=breaking_news&utm_content=header_cta",
+      "verdict": "LEGITIMATE",
+      "risk_level": "rendah",
+      "decision_source": "allowlist",
+      "probability": null,
+      "probability_c": null,
+      "reason": "Domain www.kompas.com berada dalam daftar domain tepercaya (offline).",
+      "trail": [
+        {
+          "layer": "denylist",
+          "result": "tidak cocok"
+        },
+        {
+          "layer": "allowlist",
+          "result": "cocok"
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

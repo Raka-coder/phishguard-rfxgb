@@ -1,0 +1,56 @@
+{
+  "generated_at": "2026-11-19T13:03:18+00:00",
+  "script": "scripts/eval_legit_set.py",
+  "definitions": {
+    "verdict": "PHISHING / SUSPICIOUS (TIDAK TERVERIFIKASI) / LEGITIMATE",
+    "band_edges": {
+      "rendah": "< 0.40",
+      "sedang": "0.40 <= P < 0.65",
+      "tinggi": ">= 0.65"
+    },
+    "probability_null": "allowlist atau short-circuit lain; model tidak memberi skor"
+  },
+  "sources": {
+    "legit_barat_lokal": {
+      "path": "data/realworld/legit_barat_lokal.txt",
+      "n": 40,
+      "bands": {
+        "model_b": {
+          "tinggi": 22,
+          "sedang": 0,
+          "rendah": 3,
+          "tidak_dinilai": 15
+        },
+        "model_c": {
+          "tinggi": 6,
+          "sedang": 5,
+          "rendah": 14,
+          "tidak_dinilai": 15
+        }
+      },
+      "model_c_available": true,
+      "note": "Hanya URL yang dinilai model; allowlist tidak punya probability."
+    },
+    "realworld": {
+      "status": "OK",
+      "path": "data/realworld/urls.csv",
+      "n": 355,
+      "n_skipped_invalid": 0,
+      "model_c_available": true,
+      "bands": {
+        "model_b": {
+          "tinggi": 349,
+          "sedang": 0,
+          "rendah": 6,
+          "tidak_dinilai": 0
+        },
+        "model_c": {
+          "tinggi": 297,
+          "sedang": 10,
+          "rendah": 48,
+          "tidak_dinilai": 0
+        }
+      }
+    }
+  }
+}

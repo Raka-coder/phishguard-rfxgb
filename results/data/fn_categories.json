@@ -1,0 +1,144 @@
+{
+  "generated_at": "2026-11-19T14:33:16+00:00",
+  "script": "scripts/categorize_fn.py",
+  "source": {
+    "metrics_path": "docs/metrics.json",
+    "confusion_matrix": "docs/hasil_evaluasi.md",
+    "model_b_path": "src/model.pkl",
+    "data": "data/PhiUSIIL.parquet",
+    "split": {
+      "n_test": 47159,
+      "n_train": 188636
+    },
+    "expected_fn": 122,
+    "expected_fp": 28,
+    "recomputed_fn": 122,
+    "recomputed_fp": 28,
+    "verified": true
+  },
+  "rules": {
+    "priority": [
+      "shortener",
+      "typosquatting",
+      "pendek_bersih",
+      "lainnya"
+    ],
+    "pendek_bersih": "panjang URL <=30, ASCII, tanpa ? @ %",
+    "shortener": "host ada di src/reputation.py URL_SHORTENERS",
+    "typosquatting": "host memuat label merek atau jarak Levenshtein <=1 (merek 4-5 huruf) / <=2 (>=6 huruf)"
+  },
+  "total_fn": 122,
+  "assigned_total": 122,
+  "unassigned": 0,
+  "categories": [
+    {
+      "id": "pendek_bersih",
+      "label": "URL pendek dan bersih",
+      "n": 63,
+      "examples": [
+        {
+          "url": "https://www.ridm.in",
+          "probability": 0.0012
+        },
+        {
+          "url": "https://www.sharestion.com",
+          "probability": 0.002
+        },
+        {
+          "url": "https://www.alhashimia.net",
+          "probability": 0.0032
+        },
+        {
+          "url": "https://www.brandlysms.com",
+          "probability": 0.002
+        },
+        {
+          "url": "https://www.annuitiesusaa.com",
+          "probability": 0.0037
+        }
+      ],
+      "status": "OK"
+    },
+    {
+      "id": "shortener",
+      "label": "Shortener",
+      "n": 1,
+      "examples": [
+        {
+          "url": "https://www.tinyurl.com",
+          "probability": 0.0016
+        }
+      ],
+      "status": "OK"
+    },
+    {
+      "id": "typosquatting",
+      "label": "Typosquatting/peniruan merek (string)",
+      "n": 7,
+      "examples": [
+        {
+          "url": "https://www.netflix-vn.com",
+          "probability": 0.0069
+        },
+        {
+          "url": "https://www.amznn.net",
+          "probability": 0.002
+        },
+        {
+          "url": "https://www.goto.otopplace.com",
+          "probability": 0.0107
+        },
+        {
+          "url": "https://www.microsoft-sicherheitsupdate.com",
+          "probability": 0.4939
+        },
+        {
+          "url": "https://www.support-apple.ss-c.us",
+          "probability": 0.0546
+        }
+      ],
+      "status": "OK"
+    },
+    {
+      "id": "lainnya",
+      "label": "Lainnya",
+      "n": 51,
+      "examples": [
+        {
+          "url": "https://www.wsec06empresagalicioffice.com",
+          "probability": 0.0865
+        },
+        {
+          "url": "https://www.dipartimento-revisone.com",
+          "probability": 0.0889
+        },
+        {
+          "url": "https://www.xn--ingenieurbro-brasnic-yec.de",
+          "probability": 0.0256
+        },
+        {
+          "url": "https://www.jpmodafeminina.com.br",
+          "probability": 0.0063
+        },
+        {
+          "url": "https://www.andrewanddarrens.com",
+          "probability": 0.0042
+        }
+      ],
+      "status": "OK"
+    }
+  ],
+  "brand_hits": {
+    "netflix": 1,
+    "amazon": 2,
+    "goto": 1,
+    "microsoft": 1,
+    "apple": 1,
+    "instagram": 1
+  },
+  "notes": [
+    "Daftar 122 URL FN tidak disimpan utuh karena dataset CC BY-NC-SA; hanya 5 contoh per kategori.",
+    "Taksonomi final hanya memakai kategori yang terukur dari string URL. Kategori berbasis umur domain (domain_tua) tidak dimasukkan karena tidak ada data WHOIS/RDAP di pipeline; hal itu dicatat sebagai batas pengukuran, bukan diisi perkiraan.",
+    "Kategori adalah heuristik string untuk laporan, bukan lapisan keputusan baru."
+  ]
+}
