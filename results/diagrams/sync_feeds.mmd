@@ -1,0 +1,16 @@
+flowchart TD
+    A["main()"] --> B["mkdir data/feeds (FEED_DIR dari src/config.py)"]
+    B --> C["urlopen https://openphish.com/feed.txt, timeout 60 detik"]
+    C -- "gagal" --> E["print pesan ramah dan fallback manual, return 1"]
+    C -- "berhasil" --> D["decode utf-8, errors=replace"]
+    D --> F["stempel waktu UTC YYYYMMDD-HHMMSS"]
+    F --> G["tulis openphish-stamp.txt, snapshot lama tidak ditimpa"]
+    G --> H["hitung URL non-komentar"]
+    H --> I["print path, jumlah URL, peringatan lisensi, return 0"]
+
+    classDef fail fill:#f6d5d1,stroke:#c0392b,color:#111
+    classDef ok fill:#d6ecd9,stroke:#2e7d32,color:#111
+    classDef step fill:#eef3f7,stroke:#2c6e9b,color:#111
+    class E fail
+    class I ok
+    class A,B,C,D,F,G,H step

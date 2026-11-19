@@ -1,0 +1,31 @@
+flowchart TD
+    A["predict_url(url)"] --> B["_validate: skema dan host"]
+    B -- "gagal" --> ERR["raise ValueError"]
+    B -- "lolos" --> C{"google_enabled()"}
+    C -- "ya" --> D["check_google_safe_browsing"]
+    D -- "cocok" --> R0["return PHISHING, trail google_sb"]
+    D -- "tidak cocok atau gagal" --> T0["trail google_sb tidak cocok"]
+    C -- "tidak" --> T0
+    T0 --> L["_load: Model B, tld_probs, stats (lazy singleton)"]
+    L --> F["feed_status()"]
+    F --> F1{"status ok dan is_denied(url)?"}
+    F1 -- "ya" --> R1["return PHISHING, trail denylist cocok"]
+    F1 -- "tidak" --> T1["trail denylist: tidak cocok, dilewati, atau tidak tersedia"]
+    T1 --> A2{"is_trusted(host)?"}
+    A2 -- "ya" --> R2["return LEGITIMATE, probability null, trail allowlist cocok"]
+    A2 -- "tidak" --> T2["trail allowlist tidak cocok"]
+    T2 --> E2["extract_features lalu predict_proba Model B"]
+    E2 --> T3["trail model_b: zona skor"]
+    T3 --> C2["_model_c_probability"]
+    C2 --> T4["trail model_c: zona skor atau tidak tersedia"]
+    T4 --> S["_decide: matriks zona dua model"]
+    S --> T5["trail shortener"]
+    T5 --> R3["return verdict, risk_level, decision_source, reason, probability, top_features, trail"]
+
+    classDef stop fill:#f6d5d1,stroke:#c0392b,color:#111
+    classDef pass fill:#d6ecd9,stroke:#2e7d32,color:#111
+    classDef step fill:#eef3f7,stroke:#2c6e9b,color:#111
+    class ERR stop
+    class R0,R1 pass
+    class R2,R3 pass
+    class T0,T1,T2,T3,T4,T5,L,F,E2,C2,S step

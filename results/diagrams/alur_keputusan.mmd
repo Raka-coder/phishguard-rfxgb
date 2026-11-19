@@ -1,0 +1,33 @@
+flowchart TD
+    U["URL masuk"] --> V{"Skema http/https dan host valid?"}
+    V -- "tidak" --> E["ValueError, API memetakan ke HTTP 400"]
+    V -- "ya" --> G{"PHISHGUARD_USE_GOOGLE aktif?"}
+    G -- "tidak (default)" --> DL{"L1 URL ada di snapshot feed?"}
+    G -- "ya" --> GSB["L0 Google Safe Browsing (HTTP, timeout 5 detik)"]
+    GSB -- "cocok" --> PH0["PHISHING, risk tinggi, decision_source=google_safe_browsing"]
+    GSB -- "tidak cocok atau gagal" --> DL
+    DL -- "cocok dan feed segar" --> PH1["PHISHING, risk tinggi, decision_source=denylist"]
+    DL -- "tidak cocok, basi, atau hilang" --> AL{"L2 domain ada di allowlist?"}
+    AL -- "cocok" --> LG0["LEGITIMATE, risk rendah, probability null, decision_source=allowlist"]
+    AL -- "tidak cocok" --> MB["L3 Model B, 19 fitur leksikal, P(phishing)"]
+    MB --> MC["L3 Model C, host-only tanpa www, P(phishing)"]
+    MC --> CONS{"Zona Model B dan Model C"}
+    CONS -- "dua-duanya tinggi" --> S1["SUSPICIOUS, risk tinggi"]
+    CONS -- "dua-duanya rendah" --> LG1["LEGITIMATE, risk rendah"]
+    CONS -- "berbeda atau C tidak tersedia" --> S2["SUSPICIOUS, risk sedang"]
+    LG1 --> SH{"L4 host shortener?"}
+    S1 --> OUT["Respons JSON: verdict, risk_level, probability, top_features, trail"]
+    S2 --> OUT
+    SH -- "ya" --> S3["SUSPICIOUS, risk sedang, decision_source=shortener"]
+    SH -- "tidak" --> OUT
+    S3 --> OUT
+    NOTE["Catatan: lapisan peniruan merek T20 belum ada di src/predict.py"] -.-> CONS
+
+    classDef phish fill:#f6d5d1,stroke:#c0392b,color:#111
+    classDef legit fill:#d6ecd9,stroke:#2e7d32,color:#111
+    classDef susp fill:#fbeec2,stroke:#b07d00,color:#111
+    classDef note fill:#eceff1,stroke:#7f8c8d,color:#111,stroke-dasharray:4 3
+    class PH0,PH1 phish
+    class LG0,LG1 legit
+    class S1,S2,S3 susp
+    class NOTE note

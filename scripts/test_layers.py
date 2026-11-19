@@ -37,7 +37,7 @@ from src.config import (
 from src.denylist import feed_status, is_denied, load_feed, normalize_url, reset_cache
 from src.feature_utils import to_frame
 from src.features_host import to_host_frame
-from src.predict import _decide, _load, _load_model_c
+from src.predict import _band, _decide, _load, _load_model_c
 from src.reputation import is_shortener, is_trusted
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -140,6 +140,19 @@ def stage_verdict(
     if "L3" in stages:
         return _decide(prob_b, prob_c, "L4" in stages and is_shortener(host))[0]
     return VERDICT_LEGITIMATE
+
+
+def band_counts(prob_b: list[float], prob_c: list[float | None] | None = None) -> dict:
+    """Sebaran zona skor: tinggi >=0.65, sedang 0.40-0.65, rendah <0.40."""
+
+    def _counts(values: list[float | None]) -> dict[str, int]:
+        counts = {"tinggi": 0, "sedang": 0, "rendah": 0, "tidak_dinilai": 0}
+        for value in values:
+            counts["tidak_dinilai" if value is None else _band(value)] += 1
+        return counts
+
+    model_c = _counts(prob_c) if prob_c and any(v is not None for v in prob_c) else None
+    return {"model_b": _counts(prob_b), "model_c": model_c}
 
 
 def isolation_block(name: str, kind: str, signal: str, rows: list[dict], flags: list[bool], elapsed_ms: float) -> dict:
@@ -278,6 +291,7 @@ def run(csv_path: Path, max_age_hours: int) -> dict:
         },
         "guard": guard,
         "model_c_available": model_c_available,
+        "band_distribution": band_counts(prob_b, prob_c),
         "definitions": {
             "positive": "phishing (label 0)",
             "suspicious": "dihitung non-phishing, dilaporkan terpisah",
