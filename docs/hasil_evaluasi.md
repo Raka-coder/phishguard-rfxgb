@@ -126,3 +126,17 @@ Temuan dari run contoh sintetis (bukan data feed final):
 
 Tampilan UI tidak disimpan sebagai screenshot statis di repo; jalankan aplikasi
 untuk melihat versi terbaru (lihat README, bagian "Clone bersih").
+
+## Pengujian lapisan L0-L4 (T30)
+
+Isolasi (tiap lapisan sendirian) dan kumulatif (L1 -> L1+L2 -> ... -> L0+L1..L4)
+diukur oleh `scripts/test_layers.py` pada set dunia nyata, lalu ditulis ke
+`docs/layer_tests.json`. Semua angka pengujian lapisan dirujuk dari JSON itu;
+jangan menyalinnya manual ke dokumen.
+
+Batas tafsir:
+
+- L0 dievaluasi dengan mock (skenario batas atas), bukan akurasi Google Safe Browsing.
+- Model B/C tidak pernah memvonis PHISHING; SUSPICIOUS dilaporkan terpisah.
+- Lapisan peniruan merek (T20) belum ada sehingga tidak ada baris ujinya.
+- Guard anti-melingkar membatalkan run bila snapshot feed memuat set uji.

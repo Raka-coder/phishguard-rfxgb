@@ -122,3 +122,26 @@ Pemilik proyek ingin memahami setiap perubahan: jelaskan keputusan desain secara
 2. Tulis draf `docs/bahan_laporan.md`: setiap lapisan, kelemahannya, hasil ukur, serta contoh FP/FN dan penjelasannya.
 
 **Selesai jika:** fixture tidak lagi berisi placeholder dan setiap klaim di draf menunjuk ke file/angka sumbernya.
+
+---
+
+## T30 — Pengujian berlapis L0–L4 (selesai)
+
+**Status:** selesai. Semua angka ada di `docs/layer_tests.json`, dihasilkan oleh `scripts/test_layers.py` — jangan menyalin angka ke dokumen lain.
+
+**Yang diuji:** L0 Google Safe Browsing (opt-in `PHISHGUARD_USE_GOOGLE`, HTTP di-mock), L1 denylist feed lokal, L2 allowlist, L3 Model B+C dengan zona band 0,40/0,65, L4 shortener. Tidak ada perubahan logika keputusan, skema verdict, atau `risk_level`.
+
+**Berkas:**
+- `tests/test_layers.py` — celah per lapisan: trail L0 saat tidak cocok/gagal/off, flag tanpa key, default mati tanpa env, feed basi lewat `predict_url`, varian `www.` dan lookalike allowlist, zona band deterministik dengan pipeline palsu, shortener tidak menurunkan risiko tinggi.
+- `tests/test_layer_eval.py` — guard anti-melingkar dan paritas vonis skrip vs `predict_url` pada tingkatan L1..L4.
+- `scripts/test_layers.py` — mode isolasi (tiap lapisan sendirian) dan kumulatif (L1 → L1+L2 → … → L0+L1..L4 mock), keluaran konsol + JSON.
+- `docs/layer_tests.json` — artefak angka (dataset, guard, isolasi, kumulatif, catatan).
+
+**Cara jalan:** `uv run python scripts/test_layers.py` (opsi `--max-age-hours`, default 168 jam karena snapshot feed historis). Guard membatalkan run bila lebih dari 5% URL set uji ada di snapshot feed yang dipakai (anti-melingkar).
+
+**Celah yang dicatat, bukan ditutup:**
+- T20 (deteksi peniruan merek) belum diimplementasikan, jadi item 11/13 `docs/command.md` tidak punya lapisan untuk diuji; `g0ithub.com`/`paypa1-secure.xyz` belum ditandai aturan khusus.
+- Model B/C tidak pernah memvonis `PHISHING` (desain T26); `SUSPICIOUS` dihitung non-phishing dan dilaporkan terpisah.
+- L0 hanya diuji dengan mock label-aware sebagai skenario batas atas, bukan akurasi Google Safe Browsing.
+- Nama flag di `docs/command.md` (`PHISHGUARD_GSB_ENABLED`) tidak ada di kode; yang dipakai `PHISHGUARD_USE_GOOGLE`.
+- Jumlah set dunia nyata mengikuti `data/realworld/urls.csv` (bukan 150/137 seperti `docs/command.md`).

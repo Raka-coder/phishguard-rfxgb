@@ -1,0 +1,304 @@
+{
+  "generated_at": "2026-11-19T04:07:33+00:00",
+  "script": "scripts/test_layers.py",
+  "dataset": {
+    "path": "data/realworld/urls.csv",
+    "n_total": 355,
+    "n_phish": 300,
+    "n_legit": 55,
+    "n_invalid_skipped": 0
+  },
+  "feed": {
+    "path": "data/feeds/openphish-20261117-083111.txt",
+    "status": "ok",
+    "detail": "Feed dimuat dari openphish-20261117-083111.txt (43.6 jam lalu).",
+    "max_age_hours_used": 168
+  },
+  "guard": {
+    "test_unique_urls": 355,
+    "feed_entries": 300,
+    "overlap_urls": 1,
+    "overlap_pct_of_test": 0.28,
+    "max_overlap_pct": 5.0,
+    "ok": true,
+    "note": "Feed harus snapshot berbeda dari set uji; bila tidak, evaluasi L1 melingkar."
+  },
+  "model_c_available": true,
+  "definitions": {
+    "positive": "phishing (label 0)",
+    "suspicious": "dihitung non-phishing, dilaporkan terpisah",
+    "isolation_kind_deny": "flag = lapisan menaikkan risiko; ideal: tinggi pada phishing, nol pada legit",
+    "isolation_kind_trust": "flag = lapisan menerima sebagai legit; ideal: tinggi pada legit, nol pada phishing",
+    "cumulative": "hanya lapisan pada `stages` yang aktif; sisanya LEGITIMATE"
+  },
+  "isolation": [
+    {
+      "layer": "L0_google_sb",
+      "kind": "deny",
+      "signal": "mock: source == openphish (skenario batas atas, bukan akurasi GSB)",
+      "phish": {
+        "n": 300,
+        "flagged": 300,
+        "rate": 1.0
+      },
+      "legit": {
+        "n": 55,
+        "flagged": 0,
+        "rate": 0.0
+      },
+      "mean_ms": 0.0
+    },
+    {
+      "layer": "L1_denylist",
+      "kind": "deny",
+      "signal": "URL ada di snapshot feed lokal",
+      "phish": {
+        "n": 300,
+        "flagged": 1,
+        "rate": 0.0033
+      },
+      "legit": {
+        "n": 55,
+        "flagged": 0,
+        "rate": 0.0
+      },
+      "mean_ms": 1.15
+    },
+    {
+      "layer": "L2_allowlist",
+      "kind": "trust",
+      "signal": "domain ada di allowlist tepercaya",
+      "phish": {
+        "n": 300,
+        "flagged": 0,
+        "rate": 0.0
+      },
+      "legit": {
+        "n": 55,
+        "flagged": 25,
+        "rate": 0.4545
+      },
+      "mean_ms": 0.027
+    },
+    {
+      "layer": "L3_model_band",
+      "kind": "deny",
+      "signal": "vonis model SUSPICIOUS (ambang risiko 0.65)",
+      "phish": {
+        "n": 300,
+        "flagged": 300,
+        "rate": 1.0
+      },
+      "legit": {
+        "n": 55,
+        "flagged": 51,
+        "rate": 0.9273
+      },
+      "mean_ms": 0.003
+    },
+    {
+      "layer": "L4_shortener",
+      "kind": "deny",
+      "signal": "host adalah layanan pemendek URL",
+      "phish": {
+        "n": 300,
+        "flagged": 0,
+        "rate": 0.0
+      },
+      "legit": {
+        "n": 55,
+        "flagged": 0,
+        "rate": 0.0
+      },
+      "mean_ms": 0.019
+    }
+  ],
+  "cumulative": [
+    {
+      "stage": "L1",
+      "stages": [
+        "L1"
+      ],
+      "metrics": {
+        "n": 355,
+        "tp": 1,
+        "fp": 0,
+        "fn": 299,
+        "tn": 55,
+        "precision": 1.0,
+        "recall": 0.0033,
+        "f1": 0.0066,
+        "specificity": 1.0,
+        "balanced_accuracy": 0.5017,
+        "mcc": 0.0228,
+        "fp_rate": 0.0,
+        "fp_rate_ci95": {
+          "low": 0.0,
+          "high": 0.0653
+        },
+        "recall_ci95": {
+          "low": 0.0006,
+          "high": 0.0186
+        },
+        "predicted_phishing_pct": 0.28
+      },
+      "suspicious": {
+        "phish": 0,
+        "legit": 0
+      },
+      "mean_ms": 1.132
+    },
+    {
+      "stage": "L1+L2",
+      "stages": [
+        "L1",
+        "L2"
+      ],
+      "metrics": {
+        "n": 355,
+        "tp": 1,
+        "fp": 0,
+        "fn": 299,
+        "tn": 55,
+        "precision": 1.0,
+        "recall": 0.0033,
+        "f1": 0.0066,
+        "specificity": 1.0,
+        "balanced_accuracy": 0.5017,
+        "mcc": 0.0228,
+        "fp_rate": 0.0,
+        "fp_rate_ci95": {
+          "low": 0.0,
+          "high": 0.0653
+        },
+        "recall_ci95": {
+          "low": 0.0006,
+          "high": 0.0186
+        },
+        "predicted_phishing_pct": 0.28
+      },
+      "suspicious": {
+        "phish": 0,
+        "legit": 0
+      },
+      "mean_ms": 1.049
+    },
+    {
+      "stage": "L1+L2+L3",
+      "stages": [
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "metrics": {
+        "n": 355,
+        "tp": 1,
+        "fp": 0,
+        "fn": 299,
+        "tn": 55,
+        "precision": 1.0,
+        "recall": 0.0033,
+        "f1": 0.0066,
+        "specificity": 1.0,
+        "balanced_accuracy": 0.5017,
+        "mcc": 0.0228,
+        "fp_rate": 0.0,
+        "fp_rate_ci95": {
+          "low": 0.0,
+          "high": 0.0653
+        },
+        "recall_ci95": {
+          "low": 0.0006,
+          "high": 0.0186
+        },
+        "predicted_phishing_pct": 0.28
+      },
+      "suspicious": {
+        "phish": 299,
+        "legit": 26
+      },
+      "mean_ms": 1.075
+    },
+    {
+      "stage": "L1+L2+L3+L4",
+      "stages": [
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "metrics": {
+        "n": 355,
+        "tp": 1,
+        "fp": 0,
+        "fn": 299,
+        "tn": 55,
+        "precision": 1.0,
+        "recall": 0.0033,
+        "f1": 0.0066,
+        "specificity": 1.0,
+        "balanced_accuracy": 0.5017,
+        "mcc": 0.0228,
+        "fp_rate": 0.0,
+        "fp_rate_ci95": {
+          "low": 0.0,
+          "high": 0.0653
+        },
+        "recall_ci95": {
+          "low": 0.0006,
+          "high": 0.0186
+        },
+        "predicted_phishing_pct": 0.28
+      },
+      "suspicious": {
+        "phish": 299,
+        "legit": 26
+      },
+      "mean_ms": 1.107
+    },
+    {
+      "stage": "L0+L1+L2+L3+L4 (mock)",
+      "stages": [
+        "L0",
+        "L1",
+        "L2",
+        "L3",
+        "L4"
+      ],
+      "metrics": {
+        "n": 355,
+        "tp": 300,
+        "fp": 0,
+        "fn": 0,
+        "tn": 55,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "specificity": 1.0,
+        "balanced_accuracy": 1.0,
+        "mcc": 1.0,
+        "fp_rate": 0.0,
+        "fp_rate_ci95": {
+          "low": 0.0,
+          "high": 0.0653
+        },
+        "recall_ci95": {
+          "low": 0.9874,
+          "high": 1.0
+        },
+        "predicted_phishing_pct": 84.51
+      },
+      "suspicious": {
+        "phish": 0,
+        "legit": 26
+      },
+      "mean_ms": 0.168
+    }
+  ],
+  "notes": [
+    "L0 dievaluasi dengan mock label-aware (source == openphish) sebagai skenario batas atas, bukan akurasi Google Safe Browsing.",
+    "Model B/C tidak pernah memvonis PHISHING; SUSPICIOUS dihitung non-phishing dan dilaporkan terpisah.",
+    "Lapisan peniruan merek (docs/TASKS.md T20) belum diimplementasikan, jadi tidak ada baris ujinya.",
+    "Jumlah set dunia nyata mengikuti data/realworld/urls.csv, bukan angka di docs/command.md."
+  ]
+}

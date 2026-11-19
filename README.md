@@ -3,7 +3,7 @@
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.163-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![Reflex](https://img.shields.io/badge/Reflex-0.11-6C5CE7?style=flat-square)](https://reflex.dev)
-[![Tests](https://img.shields.io/badge/tests-152%20passed-brightgreen?style=flat-square)](#pengujian)
+[![Tests](https://img.shields.io/badge/tests-182%20passed-brightgreen?style=flat-square)](#pengujian)
 [![Dataset](https://img.shields.io/badge/Dataset-CC%20BY--NC--SA%204.0-lightgrey?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
 
 PhishGuard mengklasifikasikan URL sebagai **phishing**, **legitimate**, atau **TIDAK TERVERIFIKASI** (pada API: `SUSPICIOUS`) menggunakan model machine learning berbasis dataset [PhiUSIIL](https://www.kaggle.com/datasets/ndarvind/phiusiil-phishing-url-dataset). Setiap keputusan dijelaskan secara transparan melalui jejak evaluasi (`trail`) yang merinci lapisan mana yang memicu vonis dan alasan logisnya. Antarmuka aplikasi dibangun dengan **Reflex** (100% Python) dan inferensi berkecepatan tinggi dilayani oleh **FastAPI**.
@@ -112,7 +112,7 @@ uv run python scripts/inspect_data.py   # Wajib memverifikasi: 235795 baris; lab
 uv run python scripts/sync_feeds.py
 
 # Verifikasi test suite dan kompilasi antarmuka
-uv run pytest -q                        # 152 tests
+uv run pytest -q                        # 182 tests
 uv run reflex compile
 
 # Terminal 1 — Jalankan FastAPI Service
@@ -246,7 +246,7 @@ Mengecek status kesiapan service dan ketersediaan artefak model di memori.
 Semua perintah pengujian dijalankan dari root repositori menggunakan environment `uv`:
 
 ```powershell
-# Menjalankan seluruh test suite otomatis (152 tests)
+# Menjalankan seluruh test suite otomatis (182 tests)
 uv run pytest -q
 
 # Menjalankan satu test spesifik
@@ -258,7 +258,25 @@ uv run reflex compile
 # Uji korpus contoh URL sintetis
 uv run python scripts/test_live_urls.py
 uv run python scripts/test_live_urls.py --markdown
+
+# Evaluasi isolasi & kumulatif tiap lapisan -> docs/layer_tests.json
+uv run python scripts/test_layers.py
 ```
+
+### Pengujian lapisan (L0–L4)
+
+`scripts/test_layers.py` menjalankan setiap lapisan sendirian lalu bertingkat
+(L1 → L1+L2 → … → L0+L1..L4) pada set dunia nyata, menghitung deteksi phishing,
+false positive pada legit, dan waktu rata-rata, lalu menulis semuanya ke
+`docs/layer_tests.json`. Tidak ada angka yang diketik manual di dokumen.
+
+- **Guard anti-melingkar:** run dibatalkan bila lebih dari 5% URL set uji ada di
+  snapshot feed yang dipakai. Snapshot historis dipakai dengan `--max-age-hours 168`.
+- **L0 hanya mock:** tidak ada kebenaran Google Safe Browsing offline, jadi
+  angkanya adalah skenario batas atas, bukan akurasi.
+- **Celah yang diketahui:** lapisan peniruan merek (T20) belum ada; model tidak
+  pernah memvonis `PHISHING` (hanya denylist/GSB), sehingga `SUSPICIOUS`
+  dilaporkan terpisah.
 
 ---
 
@@ -277,7 +295,7 @@ phishguard-rfxgb/
 ├── models/experimental/    # Model eksperimental C_host.pkl & tld_probs_host.json
 ├── scripts/                # Script otomasi data, evaluasi, training, dan feed sync
 ├── src/                    # Modul inti (predict, config, feature_utils, denylist, reputation, google_sb)
-└── tests/                  # Unit tests & integrasi (152 tests) + fixtures sintetis
+└── tests/                  # Unit tests & integrasi (182 tests) + fixtures sintetis
 ```
 
 ---
