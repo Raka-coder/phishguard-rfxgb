@@ -1,0 +1,27 @@
+# Virtual env & cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.web/
+node_modules/
+
+# Data mentah (diunduh saat runtime ke volume)
+data/
+*.parquet
+*.duckdb
+*.zip
+
+# Rahasia & lokal
+.env
+.env.local
+kaggle.json
+
+# Tooling lokal
+.megamemory/
+skills/
+*skills-lock.json
+
+# Git
+.git/
+.gitignore.bak

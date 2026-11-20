@@ -1,0 +1,47 @@
+services:
+  setup:
+    build: .
+    image: phishguard:latest
+    environment:
+      SERVICE: setup
+    volumes:
+      - phishguard-data:/app/data
+    restart: "no"
+
+  api:
+    build: .
+    image: phishguard:latest
+    environment:
+      SERVICE: api
+      PHISHGUARD_FEED_MAX_AGE_HOURS: "168"
+    ports:
+      - "8001:8001"
+    volumes:
+      - phishguard-data:/app/data
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  ui:
+    build: .
+    image: phishguard:latest
+    environment:
+      SERVICE: ui
+      PHISHGUARD_API_URL: "http://api:8001/check"
+    ports:
+      - "3000:3000"
+    volumes:
+      - phishguard-data:/app/data
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  phishguard-data:

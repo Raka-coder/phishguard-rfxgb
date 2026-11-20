@@ -153,6 +153,20 @@ CI=1 uv run reflex run
 
 ---
 
+### 3. Opsi Container (Docker / Podman, satu perintah)
+
+Lihat [docs/DOCKER.md](docs/DOCKER.md). Ringkasnya:
+
+```bash
+./run.sh up   # build + start (detached); run pertama unduh dataset + training
+```
+
+UI: http://localhost:3000 — API: http://localhost:8001. Run berikutnya langsung
+siap (artefak ada di volume `phishguard-data`). `./run.sh reset` untuk paksa
+training ulang.
+
+---
+
 ## Artefak & Integritas Model
 
 Artefak model operasional berikut telah disertakan langsung di repositori sehingga tidak mewajibkan pelatihan ulang:
